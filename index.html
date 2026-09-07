@@ -827,32 +827,24 @@
         const suffix = number % 10 === 1 && number % 100 !== 11 ? "st" : number % 10 === 2 && number % 100 !== 12 ? "nd" : number % 10 === 3 && number % 100 !== 13 ? "rd" : "th";
         return number + suffix;
       };
-      function monthChoices(selected, years = 4) {
-        const start = new Date();
-        start.setMonth(start.getMonth() - 12 * years);
-        const out = [];
-        const current = new Date();
-        for (let i = 0; i <= 12 * years; i++) {
-          const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-          if (d > current) break;
-          const value = d.toISOString().slice(0, 7);
-          out.push(
-            '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">" +
-              d.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) +
-              "</option>",
-          );
-        }
-        return out.join("");
+      function monthChoices(selected) {
+        // A month becomes selectable only when it has an actual entry. The
+        // current month remains available so a brand-new ledger is usable.
+        const months = new Set([today().slice(0, 7)]);
+        D.entries.forEach((entry) => { if (entry.date) months.add(entry.date.slice(0, 7)); });
+        return [...months].sort().reverse().map((value) => {
+          const label = new Date(value + "-01T12:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+          return '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">" + label + "</option>";
+        }).join("");
       }
       function periodChoices(selected) {
         const months = monthChoices(selected.replace("month:", ""));
-        const dataYears = D.entries.map((e) => +e.date.slice(0, 4)).filter(Boolean);
-        const oldestYear = Math.min(new Date().getFullYear(), ...dataYears);
-        const years = [];
-        for (let year = new Date().getFullYear(); year >= oldestYear; year--) {
+        const yearSet = new Set([new Date().getFullYear()]);
+        D.entries.forEach((entry) => { if (entry.date) yearSet.add(+entry.date.slice(0, 4)); });
+        const years = [...yearSet].sort((a, b) => b - a).map((year) => {
           const value = "year:" + year;
-          years.push('<option value="' + value + '"' + (value === selected ? " selected" : "") + ">Entire " + year + "</option>");
-        }
+          return '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">Entire " + year + "</option>";
+        });
         return '<optgroup label="Months">' + months.replaceAll('value="', 'value="month:') + '</optgroup><optgroup label="Years">' + years.join("") + "</optgroup>";
       }
       function dashboard() {
