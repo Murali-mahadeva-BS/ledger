@@ -34,7 +34,8 @@
         font-weight: 600;
       }
       .field input,
-      .field select {
+      .field select,
+      .field textarea {
         display: block;
         width: 100%;
         margin-top: 0.25rem;
@@ -43,17 +44,53 @@
         border-radius: 0.7rem;
         background: transparent;
         font-weight: 400;
+        min-height: 2.75rem;
+      }
+      .field textarea {
+        resize: vertical;
       }
       .pending-in {
-        background: linear-gradient(135deg, #86efac, #60a5fa);
+        background: linear-gradient(135deg, #60a5fa, #86efac);
       }
       .pending-out {
-        background: linear-gradient(135deg, #fda4af, #60a5fa);
+        background: linear-gradient(135deg, #fda4af, #fb7185);
       }
-      .dark body { background:#020617; color:#e2e8f0 }
-      .dark header,.dark aside,.dark .bg-white { background:#0f172a!important; color:#e2e8f0 }
-      .dark .text-slate-500,.dark .text-slate-400 { color:#94a3b8!important }
-      .dark .bg-slate-100 { background:#1e293b!important }
+      .pending-invest {
+        background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
+      }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.65rem;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #334155;
+      }
+      .icon-btn.delete {
+        color: #e11d48;
+      }
+      .icon-btn.edit {
+        color: #0f766e;
+      }
+      .dark body {
+        background: #020617;
+        color: #e2e8f0;
+      }
+      .dark header,
+      .dark aside,
+      .dark .bg-white {
+        background: #0f172a !important;
+        color: #e2e8f0;
+      }
+      .dark .text-slate-500,
+      .dark .text-slate-400 {
+        color: #94a3b8 !important;
+      }
+      .dark .bg-slate-100 {
+        background: #1e293b !important;
+      }
     </style>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
@@ -67,7 +104,13 @@
           <p id="sub" class="text-xs text-slate-500"></p>
         </div>
       </div>
-      <button id="theme" class="grid h-10 w-10 place-items-center rounded-xl text-xl hover:bg-slate-100" aria-label="Toggle dark mode">◐</button>
+      <button
+        id="theme"
+        class="grid h-10 w-10 place-items-center rounded-xl text-xl hover:bg-slate-100"
+        aria-label="Toggle dark mode"
+      >
+        ◐
+      </button>
     </header>
     <main id="app" class="mx-auto max-w-6xl p-4 pb-12"></main>
     <div id="shade" class="fixed inset-0 z-30 hidden bg-black/40"></div>
@@ -217,7 +260,23 @@
           "</button>"
         );
       }
+      function btnIcon(icon, a, i = "", c = "") {
+        return (
+          '<button class="icon-btn ' +
+          c +
+          '" data-a="' +
+          a +
+          '" data-i="' +
+          i +
+          '" aria-label="' +
+          a +
+          '">' +
+          icon +
+          "</button>"
+        );
+      }
       function render() {
+        reconcileRecurring();
         let n = nav.find((x) => x[0] === V);
         $("#sub").textContent = n[2];
         $("#nav").innerHTML = nav
@@ -566,12 +625,18 @@
           ) +
           '</div><div class="mt-5 grid gap-3 sm:grid-cols-2">' +
           D.accounts
-            .map((a) =>
-              card(
-                esc(a.name) + " · " + a.type,
-                cash(bal(a.id)),
-                "Posted balance",
-              ),
+            .map(
+              (a) =>
+                '<div class="rounded-2xl border bg-white p-4 shadow-sm"><div class="flex items-start justify-between gap-3"><div><p class="text-xs text-slate-500">' +
+                esc(a.name) +
+                " · " +
+                esc(a.type) +
+                '</p><b class="mt-1 block text-xl">' +
+                cash(bal(a.id)) +
+                '</b><small class="text-slate-500">Posted balance</small></div><div class="flex gap-1">' +
+                btnIcon("✎", "account-edit", a.id, "edit") +
+                btnIcon("🗑", "account-del", a.id, "delete") +
+                "</div></div></div>",
             )
             .join("") +
           "</div>"
@@ -579,7 +644,7 @@
       }
       function settings() {
         return (
-          '<h2 class="text-2xl font-bold">Settings</h2><section class="mt-5 rounded-2xl bg-white p-4"><h3 class="font-bold">Expense categories</h3><form id="cat" class="mt-3 flex gap-2"><input required name="name" class="min-w-0 flex-1 rounded-xl border px-3" placeholder="New expense category"><button class="rounded-xl bg-teal-600 px-3 text-white">Add</button></form><div class="mt-3 flex flex-wrap gap-2">' +
+          '<h2 class="text-2xl font-bold">Settings</h2><section class="mt-5 rounded-2xl bg-white p-4"><h3 class="font-bold">Expense categories</h3><form id="cat" class="mt-3 flex items-center gap-2"><input required name="name" class="h-11 min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2" placeholder="New expense category"><button class="h-11 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white">Add</button></form><div class="mt-3 flex flex-wrap gap-2">' +
           D.categories
             .map(
               (c) =>
@@ -647,13 +712,71 @@
       function act(a, i, k) {
         if (a === "new") open("Add " + k, form(k));
         if (a === "newrec") open("Add recurring " + k, form(k, true));
+        if (a === "edit") {
+          const entry = D.entries.find((e) => e.id === i);
+          if (!entry) return;
+          open("Edit " + entry.kind, flowForm(entry.kind, entry));
+        }
+        if (a === "account-edit") {
+          const account = D.accounts.find((a) => a.id === i);
+          if (!account) return;
+          open(
+            "Edit account",
+            '<form data-f="account-edit"><input name="id" type="hidden" value="' +
+              account.id +
+              '"><label class="field">Account name<input required name="name" value="' +
+              esc(account.name) +
+              '"></label><label class="field">Type<select name="type"><option' +
+              (account.type === "Bank" ? " selected" : "") +
+              ">Bank</option><option" +
+              (account.type === "Wallet" ? " selected" : "") +
+              ">Wallet</option><option" +
+              (account.type === "Cash" ? " selected" : "") +
+              '>Cash</option></select></label><div class="mt-5 flex gap-2"><button type="button" class="close flex-1 rounded-xl border py-2">Cancel</button><button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></div></form>',
+          );
+        }
+        if (a === "account-del") {
+          if (
+            !confirm(
+              "Delete this account? This will leave any posted entries for it unchanged.",
+            )
+          )
+            return;
+          D.accounts = D.accounts.filter((a) => a.id !== i);
+          if (!D.accounts.length)
+            D.accounts = [{ id: id(), name: "Main bank", type: "Bank" }];
+          save();
+          render();
+        }
         if (a === "post") {
           D.entries.find((e) => e.id === i).status = "posted";
           save();
           render();
         }
         if (a === "del") {
-          D.entries = D.entries.filter((e) => e.id !== i);
+          const entry = D.entries.find((e) => e.id === i);
+          const scheduleId =
+            entry?.recurringId ||
+            (D.recurring.some((schedule) => schedule.id === entry?.id)
+              ? entry.id
+              : null);
+          if (scheduleId) {
+            if (
+              !confirm(
+                "Delete this recurring schedule and all of its recorded entries?",
+              )
+            )
+              return;
+            D.recurring = D.recurring.filter(
+              (schedule) => schedule.id !== scheduleId,
+            );
+            D.entries = D.entries.filter(
+              (item) =>
+                item.recurringId !== scheduleId && item.id !== scheduleId,
+            );
+          } else {
+            D.entries = D.entries.filter((e) => e.id !== i);
+          }
           save();
           render();
         }
@@ -755,6 +878,40 @@
                 o.manual = !!o.manual;
                 D.recurring.push(o);
               }
+              if (f.dataset.f === "flow") {
+                const isEdit = !!f.dataset.editId;
+                const entryId = f.dataset.editId || id();
+                o.id = entryId;
+                o.amount = +o.amount;
+                o.manual = !!o.manual;
+                if (o.recurring === "true") {
+                  o.day = +o.day;
+                  delete o.date;
+                  delete o.recurring;
+                  if (isEdit) {
+                    const idx = D.recurring.findIndex(
+                      (item) => item.id === entryId,
+                    );
+                    if (idx >= 0)
+                      D.recurring[idx] = { ...D.recurring[idx], ...o };
+                  } else {
+                    D.recurring.push(o);
+                  }
+                } else {
+                  delete o.day;
+                  delete o.startMonth;
+                  delete o.recurring;
+                  o.status = o.manual ? "pending" : "posted";
+                  if (isEdit) {
+                    const idx = D.entries.findIndex(
+                      (item) => item.id === entryId,
+                    );
+                    if (idx >= 0) D.entries[idx] = { ...D.entries[idx], ...o };
+                  } else {
+                    D.entries.push(o);
+                  }
+                }
+              }
               if (f.dataset.f === "transfer") {
                 if (o.fromAccount === o.toAccount)
                   return alert("Choose different accounts.");
@@ -774,6 +931,12 @@
               }
               if (f.dataset.f === "account")
                 D.accounts.push({ id: id(), ...o });
+              if (f.dataset.f === "account-edit") {
+                const index = D.accounts.findIndex((a) => a.id === o.id);
+                if (index >= 0) {
+                  D.accounts[index] = { ...D.accounts[index], ...o };
+                }
+              }
               save();
               close();
               render();
@@ -824,120 +987,506 @@
         calendarMonth = today().slice(0, 7);
       const titleOf = (item) => item.title || item.description || "Untitled";
       const ordinalDate = (number) => {
-        const suffix = number % 10 === 1 && number % 100 !== 11 ? "st" : number % 10 === 2 && number % 100 !== 12 ? "nd" : number % 10 === 3 && number % 100 !== 13 ? "rd" : "th";
+        const suffix =
+          number % 10 === 1 && number % 100 !== 11
+            ? "st"
+            : number % 10 === 2 && number % 100 !== 12
+              ? "nd"
+              : number % 10 === 3 && number % 100 !== 13
+                ? "rd"
+                : "th";
         return number + suffix;
       };
+      function reconcileRecurring() {
+        const currentMonth = today().slice(0, 7);
+        let changed = false;
+        D.recurring.forEach((schedule) => {
+          const startMonth = schedule.startMonth || currentMonth;
+          let [year, month] = startMonth.split("-").map(Number);
+          const [endYear, endMonth] = currentMonth.split("-").map(Number);
+          while (year < endYear || (year === endYear && month <= endMonth)) {
+            const period = year + "-" + String(month).padStart(2, "0");
+            const dueDate =
+              period +
+              "-" +
+              String(
+                Math.min(+schedule.day, new Date(year, month, 0).getDate()),
+              ).padStart(2, "0");
+            const exists = D.entries.some(
+              (entry) =>
+                (entry.recurringId === schedule.id &&
+                  entry.period === period) ||
+                (entry.id === schedule.id && entry.date === dueDate),
+            );
+            if (dueDate <= today() && !exists) {
+              D.entries.push({
+                ...schedule,
+                id: id(),
+                recurringId: schedule.id,
+                period,
+                date: dueDate,
+                status: schedule.manual ? "pending" : "posted",
+              });
+              changed = true;
+            }
+            month++;
+            if (month > 12) {
+              month = 1;
+              year++;
+            }
+          }
+        });
+        if (changed) save();
+      }
       function monthChoices(selected) {
         // A month becomes selectable only when it has an actual entry. The
         // current month remains available so a brand-new ledger is usable.
         const months = new Set([today().slice(0, 7)]);
-        D.entries.forEach((entry) => { if (entry.date) months.add(entry.date.slice(0, 7)); });
-        return [...months].sort().reverse().map((value) => {
-          const label = new Date(value + "-01T12:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-          return '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">" + label + "</option>";
-        }).join("");
+        D.entries.forEach((entry) => {
+          if (entry.date) months.add(entry.date.slice(0, 7));
+        });
+        return [...months]
+          .sort()
+          .reverse()
+          .map((value) => {
+            const label = new Date(value + "-01T12:00:00").toLocaleDateString(
+              "en-IN",
+              { month: "long", year: "numeric" },
+            );
+            return (
+              '<option value="' +
+              value +
+              '"' +
+              (value === selected ? " selected" : "") +
+              ">" +
+              label +
+              "</option>"
+            );
+          })
+          .join("");
       }
       function periodChoices(selected) {
         const months = monthChoices(selected.replace("month:", ""));
         const yearSet = new Set([new Date().getFullYear()]);
-        D.entries.forEach((entry) => { if (entry.date) yearSet.add(+entry.date.slice(0, 4)); });
-        const years = [...yearSet].sort((a, b) => b - a).map((year) => {
-          const value = "year:" + year;
-          return '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">Entire " + year + "</option>";
+        D.entries.forEach((entry) => {
+          if (entry.date) yearSet.add(+entry.date.slice(0, 4));
         });
-        return '<optgroup label="Months">' + months.replaceAll('value="', 'value="month:') + '</optgroup><optgroup label="Years">' + years.join("") + "</optgroup>";
+        const years = [...yearSet]
+          .sort((a, b) => b - a)
+          .map((year) => {
+            const value = "year:" + year;
+            return (
+              '<option value="' +
+              value +
+              '"' +
+              (value === selected ? " selected" : "") +
+              ">" +
+              year +
+              "</option>"
+            );
+          });
+        return (
+          '<optgroup label="Months">' +
+          months.replaceAll('value="', 'value="month:') +
+          '</optgroup><optgroup label="Years">' +
+          years.join("") +
+          "</optgroup>"
+        );
       }
       function dashboard() {
         const [mode, selected] = dashboardPeriod.split(":");
         const entries = D.entries.filter((e) => e.date.startsWith(selected));
-        const income = entries.filter((e) => posted(e) && e.kind === "income").reduce((n, e) => n + +e.amount, 0);
-        const expenses = entries.filter((e) => posted(e) && e.kind === "expense").reduce((n, e) => n + +e.amount, 0);
-        const investments = entries.filter((e) => posted(e) && e.kind === "investment").reduce((n, e) => n + +e.amount, 0);
-        const future = D.entries.filter((e) => !posted(e) && e.date >= today()).reduce((n, e) => n + sign(e), 0);
+        const income = entries
+          .filter((e) => posted(e) && e.kind === "income")
+          .reduce((n, e) => n + +e.amount, 0);
+        const expenses = entries
+          .filter((e) => posted(e) && e.kind === "expense")
+          .reduce((n, e) => n + +e.amount, 0);
+        const investments = entries
+          .filter((e) => posted(e) && e.kind === "investment")
+          .reduce((n, e) => n + +e.amount, 0);
+        const future = D.entries
+          .filter((e) => !posted(e) && e.date >= today())
+          .reduce((n, e) => n + sign(e), 0);
         const overdue = D.entries.filter((e) => !posted(e) && e.date < today());
-        const loans = D.lending.filter((l) => !l.settled && l.returnDate < today());
-        return '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Overview</h2><p class="text-sm text-slate-500">Posted money, due approvals, and forecast.</p></div><label class="text-sm font-semibold">Period<select id="dashboardPeriod" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' + periodChoices(dashboardPeriod) + '</select></label></div><div class="grid grid-cols-2 gap-3 lg:grid-cols-5">' +
+        const loans = D.lending.filter(
+          (l) => !l.settled && l.returnDate < today(),
+        );
+        return (
+          '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Overview</h2><p class="text-sm text-slate-500">Posted money, due approvals, and forecast.</p></div><label class="text-sm font-semibold">Period<select id="dashboardPeriod" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' +
+          periodChoices(dashboardPeriod) +
+          '</select></label></div><div class="grid grid-cols-2 gap-3 lg:grid-cols-5">' +
           card("Total balance", cash(total()), "Posted only", "text-teal-700") +
-          card("Forecast balance", cash(total() + future), "Future approvals included") +
-          card("Income", cash(income), "Posted in selected " + mode, "text-emerald-600") +
-          card("Expenses", cash(expenses), "Posted in selected " + mode, "text-rose-600") +
-          card("Investments", cash(investments), "Posted in selected " + mode, "text-violet-600") +
-          '</div><h3 class="mb-2 mt-5 font-bold">Account balances</h3><div class="grid gap-2 sm:grid-cols-2">' +
-          D.accounts.map((a) => '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' + esc(a.name) + '</b> <small class="text-slate-500">' + a.type + '</small></span><b>' + cash(bal(a.id)) + "</b></div>").join("") +
-          "</div>" + attention(overdue, loans);
+          card(
+            "Forecast balance",
+            cash(total() + future),
+            "Future approvals included",
+          ) +
+          card(
+            "Income",
+            cash(income),
+            "Posted in selected " + mode,
+            "text-emerald-600",
+          ) +
+          card(
+            "Expenses",
+            cash(expenses),
+            "Posted in selected " + mode,
+            "text-rose-600",
+          ) +
+          card(
+            "Investments",
+            cash(investments),
+            "Posted in selected " + mode,
+            "text-violet-600",
+          ) +
+          '</div><h3 class="mb-2 mt-5 font-bold">Account balances</h3><div class="grid grid-cols-2 gap-3 lg:grid-cols-4">' +
+          D.accounts
+            .map((a) =>
+              card(
+                esc(a.name),
+                cash(bal(a.id)),
+                a.type + " · Posted balance",
+                bal(a.id) < 0 ? "text-rose-600" : "text-teal-700",
+              ),
+            )
+            .join("") +
+          "</div>" +
+          attention(overdue, loans)
+        );
       }
       function typeView(kind, heading, description) {
-        const entries = D.entries.filter((e) => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date));
-        const recurring = D.recurring.filter((r) => r.kind === kind);
-        return '<div class="flex items-end justify-between"><div><h2 class="text-2xl font-bold">' + heading + '</h2><p class="text-sm text-slate-500">' + description + '</p></div>' +
-          btn("Add " + kind, "new-flow", kind, "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white") +
-          '</div><section class="mt-5"><h3 class="mb-2 font-bold">Entries</h3>' + (entries.length ? '<div class="space-y-2">' + entries.map(row).join("") + "</div>" : empty("No " + kind + " entries yet.")) +
-          '</section><section class="mt-5"><h3 class="mb-2 font-bold">Recurring schedules</h3>' + (recurring.length ? '<div class="space-y-2">' + recurring.map(recrow).join("") + "</div>" : empty("No recurring schedules.")) + "</section>";
+        const entries = D.entries
+          .filter((e) => e.kind === kind)
+          .sort((a, b) => b.date.localeCompare(a.date));
+        return (
+          '<div class="flex items-end justify-between"><div><h2 class="text-2xl font-bold">' +
+          heading +
+          '</h2><p class="text-sm text-slate-500">' +
+          description +
+          "</p></div>" +
+          btn(
+            "Add " + kind,
+            "new-flow",
+            kind,
+            "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white",
+          ) +
+          '</div><section class="mt-5">' +
+          (entries.length
+            ? '<div class="space-y-2">' + entries.map(row).join("") + "</div>"
+            : empty("No " + kind + " entries yet.")) +
+          "</section>"
+        );
       }
       function attention(over, loans) {
         if (!over.length && !loans.length) return "";
-        return '<section class="mt-5"><h3 class="mb-2 font-bold">Needs attention</h3><div class="space-y-2">' +
-          over.map((e) => '<div class="flex justify-between rounded-xl bg-amber-50 p-3"><span><b>' + esc(titleOf(e)) + '</b><small class="block">Due ' + date(e.date) + " · " + e.kind + "</small></span>" + btn("Mark posted", "post", e.id, "rounded-lg bg-amber-200 px-2 text-xs") + "</div>").join("") +
-          loans.map((l) => '<div class="rounded-xl bg-rose-50 p-3"><b>' + esc(l.person) + "</b> owes " + cash(l.amount) + '<small class="block">Return date was ' + date(l.returnDate) + "</small></div>").join("") +
-          "</div></section>";
+        return (
+          '<section class="mt-5"><h3 class="mb-2 font-bold">Needs attention</h3><div class="space-y-2">' +
+          over
+            .map(
+              (e) =>
+                '<div class="flex justify-between rounded-xl bg-amber-50 p-3"><span><b>' +
+                esc(titleOf(e)) +
+                '</b><small class="block">Due ' +
+                date(e.date) +
+                " · " +
+                e.kind +
+                "</small></span>" +
+                btn(
+                  "Mark posted",
+                  "post",
+                  e.id,
+                  "rounded-lg bg-amber-200 px-2 text-xs",
+                ) +
+                "</div>",
+            )
+            .join("") +
+          loans
+            .map(
+              (l) =>
+                '<div class="rounded-xl bg-rose-50 p-3"><b>' +
+                esc(l.person) +
+                "</b> owes " +
+                cash(l.amount) +
+                '<small class="block">Return date was ' +
+                date(l.returnDate) +
+                "</small></div>",
+            )
+            .join("") +
+          "</div></section>"
+        );
       }
       function row(e) {
         const plus = e.kind === "income";
-        return '<div class="flex items-center justify-between rounded-2xl bg-white p-3 shadow-sm"><span><b>' + esc(titleOf(e)) + '</b><small class="block text-slate-500">' + date(e.date) + " · " + esc(acc(e.accountId)) + (e.manual ? " · manual" : "") + (e.note ? " · note saved" : "") + '</small></span><span class="text-right"><b class="' + (plus ? "text-emerald-600" : "text-rose-600") + '">' + (plus ? "+" : "−") + cash(e.amount) + "</b><br>" + (!posted(e) ? btn("Mark posted", "post", e.id, "text-xs font-semibold text-teal-700") : btn("Delete", "del", e.id, "text-xs text-rose-500")) + "</span></div>";
+        return (
+          '<div class="flex items-center justify-between rounded-2xl bg-white p-3 shadow-sm"><span><b>' +
+          esc(titleOf(e)) +
+          (e.recurringId
+            ? ' <span title="Recurring monthly" class="text-teal-600">🔁</span>'
+            : "") +
+          '</b><small class="block text-slate-500">' +
+          (e.recurringId
+            ? ordinalDate(e.day) + " of every month"
+            : date(e.date)) +
+          " · " +
+          esc(acc(e.accountId)) +
+          (e.manual ? " · manual" : "") +
+          (e.note ? " · note saved" : "") +
+          '</small></span><span class="text-right"><b class="' +
+          (plus
+            ? "text-emerald-600"
+            : e.kind === "investment"
+              ? "text-violet-600"
+              : "text-rose-600") +
+          '">' +
+          (plus ? "+" : e.kind === "investment" ? "−" : "−") +
+          cash(e.amount) +
+          '</b><br><span class="inline-flex items-center gap-1">' +
+          (!posted(e)
+            ? btn(
+                "Mark posted",
+                "post",
+                e.id,
+                "text-xs font-semibold text-teal-700",
+              ) +
+              " " +
+              btnIcon("✎", "edit", e.id, "edit") +
+              " " +
+              btnIcon("🗑", "del", e.id, "delete")
+            : btnIcon("✎", "edit", e.id, "edit") +
+              " " +
+              btnIcon("🗑", "del", e.id, "delete")) +
+          "</span></span></div>"
+        );
       }
       function recrow(r) {
-        return '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' + esc(titleOf(r)) + '</b><small class="block text-slate-500">' + cash(r.amount) + " · every month on " + ordinalDate(r.day) + "</small></span>" + btn("Record this month", "run", r.id, "rounded-lg bg-teal-50 px-2 text-xs text-teal-700") + "</div>";
+        return (
+          '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' +
+          esc(titleOf(r)) +
+          '</b><small class="block text-slate-500">' +
+          cash(r.amount) +
+          " · every month on " +
+          ordinalDate(r.day) +
+          "</small></span>" +
+          btn(
+            "Record this month",
+            "run",
+            r.id,
+            "rounded-lg bg-teal-50 px-2 text-xs text-teal-700",
+          ) +
+          "</div>"
+        );
       }
       function calendar() {
         const [y, m] = calendarMonth.split("-").map(Number);
-        const last = new Date(y, m, 0).getDate(), first = new Date(y, m - 1, 1).getDay(), cells = Array(first).fill("<div></div>");
+        const last = new Date(y, m, 0).getDate(),
+          first = new Date(y, m - 1, 1).getDay(),
+          cells = Array(first).fill("<div></div>");
         for (let i = 1; i <= last; i++) {
           const day = calendarMonth + "-" + String(i).padStart(2, "0");
           const items = [
             ...D.entries.filter((e) => e.date === day),
-            ...D.recurring.filter((r) => Math.min(+r.day, last) === i && !D.entries.some((e) => e.recurringId === r.id && e.date === day)).map((r) => ({ ...r, date: day, status: r.manual ? "pending" : "posted", scheduled: true })),
+            ...D.recurring
+              .filter(
+                (r) =>
+                  Math.min(+r.day, last) === i &&
+                  !D.entries.some(
+                    (e) => e.recurringId === r.id && e.date === day,
+                  ),
+              )
+              .map((r) => ({
+                ...r,
+                date: day,
+                status: r.manual ? "pending" : "posted",
+                scheduled: true,
+              })),
           ];
-          cells.push('<div class="min-h-24 rounded-lg border p-1"><small class="text-slate-400">' + i + "</small>" + items.map((e) => '<div class="mt-1 truncate rounded px-1 text-[10px] text-white ' + (!posted(e) ? (e.kind === "income" ? "pending-in" : "pending-out") : (e.kind === "income" ? "bg-emerald-500" : "bg-rose-500")) + '">' + esc(titleOf(e)) + " " + cash(e.amount) + "</div>").join("") + "</div>");
+          cells.push(
+            '<div class="min-h-24 rounded-lg border p-1"><small class="text-slate-400">' +
+              i +
+              "</small>" +
+              items
+                .map(
+                  (e) =>
+                    '<div class="mt-1 truncate rounded px-1 text-[10px] text-white ' +
+                    (!posted(e)
+                      ? e.kind === "income"
+                        ? "pending-in"
+                        : e.kind === "investment"
+                          ? "pending-invest"
+                          : "pending-out"
+                      : e.kind === "income"
+                        ? "bg-emerald-500"
+                        : e.kind === "investment"
+                          ? "bg-violet-500"
+                          : "bg-rose-500") +
+                    '">' +
+                    esc(titleOf(e)) +
+                    " " +
+                    cash(e.amount) +
+                    "</div>",
+                )
+                .join("") +
+              "</div>",
+          );
         }
-        return '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Calendar</h2><p class="text-sm text-slate-500">Green income, red outflow, blue gradients awaiting approval.</p></div><label class="text-sm font-semibold">Month<select id="calendarMonth" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' + monthChoices(calendarMonth) + '</select></label></div><div class="rounded-2xl bg-white p-3"><div class="mb-2 grid grid-cols-7 text-center text-xs text-slate-400"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="grid grid-cols-7 gap-1">' + cells.join("") + "</div></div>";
+        return (
+          '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Calendar</h2><p class="text-sm text-slate-500">Blue to green income, purple investments, red outflow, with approvals in gradient tones.</p></div><label class="text-sm font-semibold">Month<select id="calendarMonth" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' +
+          monthChoices(calendarMonth) +
+          '</select></label></div><div class="rounded-2xl bg-white p-3"><div class="mb-2 grid grid-cols-7 text-center text-xs text-slate-400"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="grid grid-cols-7 gap-1">' +
+          cells.join("") +
+          "</div></div>"
+        );
       }
-      function flowForm(kind) {
-        return '<form data-f="flow"><input name="kind" type="hidden" value="' + kind + '"><label class="field">Title<input required name="title" maxlength="80" placeholder="e.g. ' + (kind === "income" ? "Salary" : "Monthly rent") + '"></label><label class="field">Amount (₹)<input required name="amount" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></label><label class="field">Entry type<select name="recurring" data-recurring-select><option value="false">One-time</option><option value="true">Recurring monthly</option></select></label><div data-onetime><label class="field">' + (kind === "income" ? "Credit" : "Debit") + ' date<input name="date" type="date" value="' + today() + '"></label></div><div data-recurring class="hidden"><label class="field">Approximate day of month<input name="day" type="number" min="1" max="31" value="1"></label></div><label class="field">Account<select name="accountId">' + opts() + '</select></label>' + (kind === "expense" ? '<label class="field">Expense category<select name="category">' + cats() + "</select></label>" : "") + '<label class="field">Note <span class="font-normal text-slate-500">(optional)</span><textarea name="note" rows="3" maxlength="500" class="mt-1 w-full rounded-xl border p-2 font-normal" placeholder="Anything useful to remember"></textarea></label><label class="mt-4 flex gap-2 text-sm"><input name="manual" type="checkbox"> Require manual approval before balance changes</label><div class="mt-5 flex gap-2"><button type="button" class="close flex-1 rounded-xl border py-2">Cancel</button><button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></div></form>';
+      function flowForm(kind, existing = null) {
+        const isEdit = !!existing;
+        const defaults = existing || {
+          title: "",
+          amount: "",
+          date: today(),
+          day: 1,
+          startMonth: today().slice(0, 7),
+          accountId: D.accounts[0]?.id || "",
+          category: D.categories[0] || "",
+          note: "",
+          manual: true,
+        };
+        return (
+          '<form data-f="flow" data-edit-id="' +
+          (isEdit ? existing.id : "") +
+          '"><input name="kind" type="hidden" value="' +
+          kind +
+          '"><label class="field">Title<input required name="title" maxlength="80" value="' +
+          esc(defaults.title) +
+          '" placeholder="e.g. ' +
+          (kind === "income"
+            ? "Salary"
+            : kind === "investment"
+              ? "Brokerage"
+              : "Monthly rent") +
+          '"></label><label class="field">Amount (₹)<input required name="amount" type="number" min="0" step="any" inputmode="decimal" value="' +
+          (defaults.amount ?? "") +
+          '" placeholder="0"></label><label class="field">Entry type<select name="recurring" data-recurring-select><option value="false"' +
+          (!existing || !existing.recurringId ? " selected" : "") +
+          '>One-time</option><option value="true"' +
+          (existing && existing.recurringId ? " selected" : "") +
+          ">Recurring monthly</option></select></label><div data-onetime" +
+          (existing && existing.recurringId ? ' class="hidden"' : "") +
+          '><label class="field">' +
+          (kind === "income" ? "Credit" : "Debit") +
+          ' date<input name="date" type="date" value="' +
+          (defaults.date || today()) +
+          '"></label></div><div data-recurring' +
+          (!existing || !existing.recurringId ? ' class="hidden"' : "") +
+          '><label class="field">Day of month<input name="day" type="number" min="1" max="31" value="' +
+          (defaults.day ?? 1) +
+          '"></label><label class="field">Starts from<input name="startMonth" type="month" value="' +
+          (defaults.startMonth || today().slice(0, 7)) +
+          '"></label></div><label class="field">Account<select name="accountId">' +
+          D.accounts
+            .map(
+              (a) =>
+                '<option value="' +
+                a.id +
+                '"' +
+                (a.id === (defaults.accountId || D.accounts[0]?.id)
+                  ? " selected"
+                  : "") +
+                ">" +
+                esc(a.name) +
+                " · " +
+                a.type +
+                "</option>",
+            )
+            .join("") +
+          "</select></label>" +
+          (kind === "expense"
+            ? '<label class="field">Expense category<select name="category">' +
+              D.categories
+                .map(
+                  (c) =>
+                    '<option value="' +
+                    esc(c) +
+                    '"' +
+                    (c === (defaults.category || D.categories[0])
+                      ? " selected"
+                      : "") +
+                    ">" +
+                    esc(c) +
+                    "</option>",
+                )
+                .join("") +
+              "</select></label>"
+            : "") +
+          '<label class="field">Note <span class="font-normal text-slate-500">(optional)</span><textarea name="note" rows="3" maxlength="500" class="mt-1 w-full rounded-xl border p-2 font-normal" placeholder="Anything useful to remember">' +
+          esc(defaults.note || "") +
+          '</textarea></label><label class="mt-4 flex gap-2 text-sm"><input name="manual" type="checkbox"' +
+          (defaults.manual !== false ? " checked" : "") +
+          '> Require manual approval before balance changes</label><div class="mt-5 flex gap-2"><button type="button" class="close flex-1 rounded-xl border py-2">Cancel</button><button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></div></form>'
+        );
       }
       const previousBind = bindLegacy;
       function bind() {
         previousBind();
-        document.querySelectorAll('[data-a="new-flow"]').forEach((button) => button.onclick = () => open("Add " + button.dataset.i, flowForm(button.dataset.i)));
-        document.querySelectorAll("[data-recurring-select]").forEach((select) => select.onchange = () => {
-          const form = select.closest("form"), recurring = select.value === "true";
-          form.querySelector("[data-onetime]").classList.toggle("hidden", recurring);
-          form.querySelector("[data-recurring]").classList.toggle("hidden", !recurring);
-        });
-        document.querySelectorAll('form[data-f="flow"]').forEach((form) => form.onsubmit = (event) => {
-          event.preventDefault();
-          const entry = Object.fromEntries(new FormData(form));
-          entry.id = id(); entry.amount = +entry.amount; entry.manual = !!entry.manual;
-          if (entry.recurring === "true") {
-            entry.day = +entry.day; delete entry.date; delete entry.recurring;
-            D.recurring.push(entry);
-          } else {
-            delete entry.day; delete entry.recurring;
-            entry.status = entry.manual ? "pending" : "posted";
-            D.entries.push(entry);
-          }
-          save(); close(); render();
-        });
+        document
+          .querySelectorAll('[data-a="new-flow"]')
+          .forEach(
+            (button) =>
+              (button.onclick = () =>
+                open("Add " + button.dataset.i, flowForm(button.dataset.i))),
+          );
+        document.querySelectorAll("[data-recurring-select]").forEach(
+          (select) =>
+            (select.onchange = () => {
+              const form = select.closest("form"),
+                recurring = select.value === "true";
+              form
+                .querySelector("[data-onetime]")
+                .classList.toggle("hidden", recurring);
+              form
+                .querySelector("[data-recurring]")
+                .classList.toggle("hidden", !recurring);
+            }),
+        );
+        document.querySelectorAll('form[data-f="account-edit"]').forEach(
+          (form) =>
+            (form.onsubmit = (event) => {
+              event.preventDefault();
+              const values = Object.fromEntries(new FormData(form));
+              const idx = D.accounts.findIndex((a) => a.id === values.id);
+              if (idx >= 0) {
+                D.accounts[idx] = { ...D.accounts[idx], ...values };
+                save();
+                close();
+                render();
+              }
+            }),
+        );
         const dash = $("#dashboardPeriod");
-        if (dash) dash.onchange = () => { dashboardPeriod = dash.value; render(); };
+        if (dash)
+          dash.onchange = () => {
+            dashboardPeriod = dash.value;
+            render();
+          };
         const cal = $("#calendarMonth");
-        if (cal) cal.onchange = () => { calendarMonth = cal.value; render(); };
+        if (cal)
+          cal.onchange = () => {
+            calendarMonth = cal.value;
+            render();
+          };
       }
-      $("#modal").onclick = (event) => { if (event.target === $("#modal")) close(); };
+      $("#modal").onclick = (event) => {
+        if (event.target === $("#modal")) close();
+      };
       $("#theme").onclick = () => {
         document.documentElement.classList.toggle("dark");
-        localStorage.setItem("ledger-dark", document.documentElement.classList.contains("dark"));
+        localStorage.setItem(
+          "ledger-dark",
+          document.documentElement.classList.contains("dark"),
+        );
       };
-      if (localStorage.getItem("ledger-dark") === "true") document.documentElement.classList.add("dark");
+      if (localStorage.getItem("ledger-dark") === "true")
+        document.documentElement.classList.add("dark");
       $("#menu").onclick = () => {
         $("#drawer").classList.add("open");
         $("#shade").classList.remove("hidden");

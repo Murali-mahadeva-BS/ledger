@@ -1,1 +1,27 @@
-const CACHE='ledger-v1';const LOCAL=['./','./index.html','./manifest.webmanifest','./icon.svg'];const TAILWIND='https://cdn.tailwindcss.com/';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(LOCAL)).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(res=>{if(e.request.url===TAILWIND)caches.open(CACHE).then(c=>c.put(e.request,res.clone()));return res}).catch(()=>caches.match('./index.html'))))});
+const CACHE = "ledger-v2";
+const LOCAL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
+const TAILWIND = "https://cdn.tailwindcss.com/";
+self.addEventListener("install", (e) =>
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(LOCAL))
+      .then(() => self.skipWaiting()),
+  ),
+);
+self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener("fetch", (e) => {
+  e.respondWith(
+    caches.match(e.request).then(
+      (hit) =>
+        hit ||
+        fetch(e.request)
+          .then((res) => {
+            if (e.request.url === TAILWIND)
+              caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+            return res;
+          })
+          .catch(() => caches.match("./index.html")),
+    ),
+  );
+});
