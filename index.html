@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ledger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: system-ui;
+      }
+      .modal {
+        display: none;
+      }
+      .modal.open {
+        display: flex;
+      }
+      .drawer {
+        transform: translateX(-105%);
+        transition: 0.2s;
+      }
+      .drawer.open {
+        transform: none;
+      }
+      .active {
+        background: #ccfbf1;
+        color: #0f766e;
+        font-weight: 700;
+      }
+      .field {
+        display: block;
+        margin-top: 0.7rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .field input,
+      .field select {
+        display: block;
+        width: 100%;
+        margin-top: 0.25rem;
+        padding: 0.6rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.7rem;
+        background: transparent;
+        font-weight: 400;
+      }
+      .pending-in {
+        background: linear-gradient(135deg, #86efac, #60a5fa);
+      }
+      .pending-out {
+        background: linear-gradient(135deg, #fda4af, #60a5fa);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-800">
+    <header
+      class="sticky top-0 z-20 flex justify-between border-b bg-white/95 px-4 py-3 backdrop-blur"
+    >
+      <div class="flex gap-3">
+        <button id="menu" class="rounded-xl px-2 text-xl">☰</button>
+        <div>
+          <h1 class="font-bold text-teal-700">ledger</h1>
+          <p id="sub" class="text-xs text-slate-500"></p>
+        </div>
+      </div>
+      <button id="theme">◐</button>
+    </header>
+    <main id="app" class="mx-auto max-w-6xl p-4 pb-12"></main>
+    <div id="shade" class="fixed inset-0 z-30 hidden bg-black/40"></div>
+    <aside
+      id="drawer"
+      class="drawer fixed inset-y-0 left-0 z-40 w-72 bg-white p-4 shadow-2xl"
+    >
+      <div class="mb-5 flex justify-between">
+        <b class="text-xl text-teal-700">ledger</b
+        ><button class="close text-2xl">×</button>
+      </div>
+      <nav id="nav" class="space-y-1"></nav>
+      <p class="mt-6 border-t pt-4 text-xs text-slate-500">
+        Only posted entries affect balances.
+      </p>
+    </aside>
+    <div
+      id="modal"
+      class="modal fixed inset-0 z-50 items-end bg-black/40 sm:items-center sm:justify-center"
+    >
+      <div
+        class="max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 sm:max-w-lg sm:rounded-3xl"
+      >
+        <div class="flex justify-between">
+          <h2 id="mtitle" class="text-lg font-bold"></h2>
+          <button class="close text-2xl">×</button>
+        </div>
+        <div id="mbody"></div>
+      </div>
+    </div>
+    <script>
+      const $ = (s) => document.querySelector(s),
+        K = "ledger-v2",
+        id = () => crypto.randomUUID(),
+        today = () => new Date().toISOString().slice(0, 10),
+        esc = (s) =>
+          String(s || "").replace(
+            /[&<>'"]/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "'": "&#39;",
+                '"': "&quot;",
+              })[c],
+          ),
+        cash = (n) =>
+          new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            maximumFractionDigits: 0,
+          }).format(n || 0),
+        date = (d) =>
+          new Intl.DateTimeFormat("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }).format(new Date(d + "T12:00:00"));
+      let D = JSON.parse(localStorage.getItem(K) || "null") || {
+          accounts: [
+            { id: "bank", name: "Main bank", type: "Bank" },
+            { id: "cash", name: "Cash", type: "Cash" },
+          ],
+          categories: [
+            "Salary",
+            "Freelance",
+            "Rent",
+            "Groceries",
+            "Food",
+            "Transport",
+            "Utilities",
+            "Shopping",
+            "Health",
+            "Other",
+          ],
+          entries: [],
+          recurring: [],
+          lending: [],
+        },
+        V = "dashboard",
+        P = "month";
+      const save = () => localStorage.setItem(K, JSON.stringify(D)),
+        nav = [
+          ["dashboard", "⌂", "Dashboard"],
+          ["income", "↓", "Income"],
+          ["expense", "↑", "Expenses"],
+          ["investment", "◈", "Investments"],
+          ["transfer", "⇄", "Transfers"],
+          ["calendar", "□", "Calendar"],
+          ["lending", "↗", "Lending"],
+          ["accounts", "▣", "Accounts"],
+          ["settings", "⚙", "Settings"],
+        ];
+      const acc = (i) => D.accounts.find((a) => a.id === i)?.name || "Unknown",
+        posted = (e) => e.status === "posted",
+        sign = (e) =>
+          e.kind === "income"
+            ? +e.amount
+            : e.kind === "transfer"
+              ? 0
+              : -+e.amount,
+        bal = (a) =>
+          D.entries
+            .filter(posted)
+            .reduce(
+              (n, e) =>
+                e.kind === "transfer"
+                  ? e.fromAccount === a
+                    ? n - +e.amount
+                    : e.toAccount === a
+                      ? n + +e.amount
+                      : n
+                  : e.accountId === a
+                    ? n + sign(e)
+                    : n,
+              0,
+            ),
+        total = () => D.accounts.reduce((n, a) => n + bal(a.id), 0),
+        empty = (s) =>
+          '<div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">' +
+          s +
+          "</div>";
+      function card(t, v, s = "", c = "") {
+        return (
+          '<div class="rounded-2xl border bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">' +
+          t +
+          '</p><b class="mt-1 block text-xl ' +
+          c +
+          '">' +
+          v +
+          '</b><small class="text-slate-500">' +
+          s +
+          "</small></div>"
+        );
+      }
+      function btn(t, a, i = "", c = "") {
+        return (
+          '<button class="' +
+          c +
+          '" data-a="' +
+          a +
+          '" data-i="' +
+          i +
+          '">' +
+          t +
+          "</button>"
+        );
+      }
+      function render() {
+        let n = nav.find((x) => x[0] === V);
+        $("#sub").textContent = n[2];
+        $("#nav").innerHTML = nav
+          .map(
+            (x) =>
+              '<button data-v="' +
+              x[0] +
+              '" class="block w-full rounded-xl px-3 py-2 text-left ' +
+              (V === x[0] ? "active" : "") +
+              '"><span class="mr-3">' +
+              x[1] +
+              "</span>" +
+              x[2] +
+              "</button>",
+          )
+          .join("");
+        $("#app").innerHTML = {
+          dashboard,
+          income,
+          expense,
+          investment,
+          transfer,
+          calendar,
+          lending,
+          accounts,
+          settings,
+        }[V]();
+        bind();
+      }
+      function dashboard() {
+        let inPeriod = (e) => {
+            let d = new Date(e.date + "T12:00:00"),
+              n = new Date();
+            return P === "month"
+              ? d.getFullYear() == n.getFullYear() &&
+                  d.getMonth() == n.getMonth()
+              : d.getFullYear() == n.getFullYear();
+          },
+          es = D.entries.filter(inPeriod),
+          inc = es
+            .filter((e) => posted(e) && e.kind === "income")
+            .reduce((n, e) => n + +e.amount, 0),
+          out = es
+            .filter(
+              (e) => posted(e) && e.kind !== "income" && e.kind !== "transfer",
+            )
+            .reduce((n, e) => n + +e.amount, 0),
+          pending = D.entries.filter((e) => !posted(e)),
+          forecast =
+            total() +
+            pending
+              .filter((e) => e.date >= today())
+              .reduce((n, e) => n + sign(e), 0),
+          over = pending.filter((e) => e.date < today()),
+          loans = D.lending.filter((l) => !l.settled && l.returnDate < today());
+        return (
+          '<div class="mb-4 flex justify-between"><div><h2 class="text-2xl font-bold">Overview</h2><p class="text-sm text-slate-500">Posted money, due approvals, and forecast.</p></div><div class="rounded-xl bg-slate-100 p-1 text-xs"><button data-p="month" class="rounded-lg px-2 py-1 ' +
+          (P === "month" ? "bg-white shadow" : "") +
+          '">Month</button><button data-p="year" class="rounded-lg px-2 py-1 ' +
+          (P === "year" ? "bg-white shadow" : "") +
+          '">Year</button></div></div><div class="grid grid-cols-2 gap-3 lg:grid-cols-4">' +
+          card("Total balance", cash(total()), "Posted only", "text-teal-700") +
+          card(
+            "Forecast balance",
+            cash(forecast),
+            "Future approvals included",
+          ) +
+          card(
+            P === "month" ? "Monthly income" : "Yearly income",
+            cash(inc),
+            "Posted",
+            "text-emerald-600",
+          ) +
+          card("Expenses + investments", cash(out), "Posted", "text-rose-600") +
+          '</div><h3 class="mb-2 mt-5 font-bold">Account balances</h3><div class="grid gap-2 sm:grid-cols-2">' +
+          D.accounts
+            .map(
+              (a) =>
+                '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' +
+                esc(a.name) +
+                '</b> <small class="text-slate-500">' +
+                a.type +
+                "</small></span><b>" +
+                cash(bal(a.id)) +
+                "</b></div>",
+            )
+            .join("") +
+          "</div>" +
+          attention(over, loans)
+        );
+      }
+      function attention(over, loans) {
+        if (!over.length && !loans.length) return "";
+        return (
+          '<section class="mt-5"><h3 class="mb-2 font-bold">Needs attention</h3><div class="space-y-2">' +
+          over
+            .map(
+              (e) =>
+                '<div class="flex justify-between rounded-xl bg-amber-50 p-3"><span><b>' +
+                esc(e.description) +
+                '</b><small class="block">Due ' +
+                date(e.date) +
+                " · " +
+                e.kind +
+                "</small></span>" +
+                btn(
+                  "Mark posted",
+                  "post",
+                  e.id,
+                  "rounded-lg bg-amber-200 px-2 text-xs",
+                ) +
+                "</div>",
+            )
+            .join("") +
+          loans
+            .map(
+              (l) =>
+                '<div class="rounded-xl bg-rose-50 p-3"><b>' +
+                esc(l.person) +
+                "</b> owes " +
+                cash(l.amount) +
+                '<small class="block">Return date was ' +
+                date(l.returnDate) +
+                "</small></div>",
+            )
+            .join("") +
+          "</div></section>"
+        );
+      }
+      function typeView(k, title, desc) {
+        let es = D.entries
+            .filter((e) => e.kind === k)
+            .sort((a, b) => b.date.localeCompare(a.date)),
+          rs = D.recurring.filter((r) => r.kind === k);
+        return (
+          '<div class="flex items-end justify-between"><div><h2 class="text-2xl font-bold">' +
+          title +
+          '</h2><p class="text-sm text-slate-500">' +
+          desc +
+          "</p></div>" +
+          btn(
+            "Add " + k,
+            "new",
+            k,
+            "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white",
+          ) +
+          '</div><section class="mt-5"><h3 class="mb-2 font-bold">Entries</h3>' +
+          (es.length
+            ? '<div class="space-y-2">' + es.map(row).join("") + "</div>"
+            : empty("No " + k + " entries yet.")) +
+          '</section><section class="mt-5"><div class="mb-2 flex justify-between"><h3 class="font-bold">Recurring</h3>' +
+          btn(
+            "+ Add recurring",
+            "newrec",
+            k,
+            "text-sm font-semibold text-teal-700",
+          ) +
+          "</div>" +
+          (rs.length
+            ? '<div class="space-y-2">' + rs.map(recrow).join("") + "</div>"
+            : empty("No recurring entries.")) +
+          "</section>"
+        );
+      }
+      const income = () =>
+          typeView(
+            "income",
+            "Income",
+            "Credit dates can be confirmed manually.",
+          ),
+        expense = () =>
+          typeView("expense", "Expenses", "Record past or future debits."),
+        investment = () =>
+          typeView(
+            "investment",
+            "Investments",
+            "Approval debits the selected account.",
+          );
+      function row(e) {
+        let plus = e.kind === "income";
+        return (
+          '<div class="flex items-center justify-between rounded-2xl bg-white p-3 shadow-sm"><span><b>' +
+          esc(e.description) +
+          '</b><small class="block text-slate-500">' +
+          date(e.date) +
+          " · " +
+          esc(acc(e.accountId)) +
+          (e.manual ? " · manual" : "") +
+          '</small></span><span class="text-right"><b class="' +
+          (plus ? "text-emerald-600" : "text-rose-600") +
+          '">' +
+          (plus ? "+" : "−") +
+          cash(e.amount) +
+          "</b><br>" +
+          (!posted(e)
+            ? btn(
+                "Mark posted",
+                "post",
+                e.id,
+                "text-xs font-semibold text-teal-700",
+              )
+            : btn("Delete", "del", e.id, "text-xs text-rose-500")) +
+          "</span></div>"
+        );
+      }
+      function recrow(r) {
+        return (
+          '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' +
+          esc(r.description) +
+          '</b><small class="block text-slate-500">' +
+          cash(r.amount) +
+          " · around day " +
+          r.day +
+          " · " +
+          (r.manual ? "manual approval" : "auto post") +
+          "</small></span>" +
+          btn(
+            "Create due entry",
+            "run",
+            r.id,
+            "rounded-lg bg-teal-50 px-2 text-xs text-teal-700",
+          ) +
+          "</div>"
+        );
+      }
+      function transfer() {
+        let es = D.entries.filter((e) => e.kind === "transfer");
+        return (
+          '<div class="flex justify-between"><div><h2 class="text-2xl font-bold">Transfers</h2><p class="text-sm text-slate-500">Move money between your accounts.</p></div>' +
+          btn(
+            "New transfer",
+            "transfer",
+            "",
+            "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white",
+          ) +
+          '</div><div class="mt-5 space-y-2">' +
+          (es.length
+            ? es
+                .map(
+                  (e) =>
+                    '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' +
+                    acc(e.fromAccount) +
+                    "</b> → <b>" +
+                    acc(e.toAccount) +
+                    '</b><small class="block text-slate-500">' +
+                    date(e.date) +
+                    "</small></span><b>" +
+                    cash(e.amount) +
+                    "</b></div>",
+                )
+                .join("")
+            : empty("No transfers yet.")) +
+          "</div>"
+        );
+      }
+      function calendar() {
+        let n = new Date(),
+          y = n.getFullYear(),
+          m = n.getMonth(),
+          last = new Date(y, m + 1, 0).getDate(),
+          first = new Date(y, m, 1).getDay(),
+          pre = String(m + 1).padStart(2, "0"),
+          cells = Array(first).fill("<div></div>");
+        for (let i = 1; i <= last; i++) {
+          let dt = y + "-" + pre + "-" + String(i).padStart(2, "0"),
+            items = D.entries.filter((e) => e.date === dt);
+          cells.push(
+            '<div class="min-h-24 rounded-lg border p-1"><small class="text-slate-400">' +
+              i +
+              "</small>" +
+              items
+                .map(
+                  (e) =>
+                    '<div class="mt-1 truncate rounded px-1 text-[10px] text-white ' +
+                    (!posted(e)
+                      ? e.kind === "income"
+                        ? "pending-in"
+                        : "pending-out"
+                      : e.kind === "income"
+                        ? "bg-emerald-500"
+                        : "bg-rose-500") +
+                    '">' +
+                    esc(e.description) +
+                    " " +
+                    cash(e.amount) +
+                    "</div>",
+                )
+                .join("") +
+              "</div>",
+          );
+        }
+        return (
+          '<h2 class="text-2xl font-bold">Calendar</h2><p class="mb-4 text-sm text-slate-500">' +
+          n.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) +
+          ' · blue gradients await approval</p><div class="rounded-2xl bg-white p-3"><div class="mb-2 grid grid-cols-7 text-center text-xs text-slate-400"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="grid grid-cols-7 gap-1">' +
+          cells.join("") +
+          "</div></div>"
+        );
+      }
+      function lending() {
+        return (
+          '<div class="flex justify-between"><div><h2 class="text-2xl font-bold">Lending</h2><p class="text-sm text-slate-500">Amounts lent and expected return dates.</p></div>' +
+          btn(
+            "Record lending",
+            "loan",
+            "",
+            "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white",
+          ) +
+          '</div><div class="mt-5 space-y-2">' +
+          (D.lending.length
+            ? D.lending
+                .map(
+                  (l) =>
+                    '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' +
+                    esc(l.person) +
+                    '</b><small class="block text-slate-500">Lent ' +
+                    date(l.date) +
+                    " · return " +
+                    date(l.returnDate) +
+                    "</small></span><span><b>" +
+                    cash(l.amount) +
+                    "</b><br>" +
+                    (l.settled
+                      ? "Settled"
+                      : btn(
+                          "Mark returned",
+                          "settle",
+                          l.id,
+                          "text-xs text-teal-700",
+                        )) +
+                    "</span></div>",
+                )
+                .join("")
+            : empty("No lending records.")) +
+          "</div>"
+        );
+      }
+      function accounts() {
+        return (
+          '<div class="flex justify-between"><div><h2 class="text-2xl font-bold">Accounts</h2><p class="text-sm text-slate-500">Banks, wallets, and cash.</p></div>' +
+          btn(
+            "Add account",
+            "account",
+            "",
+            "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white",
+          ) +
+          '</div><div class="mt-5 grid gap-3 sm:grid-cols-2">' +
+          D.accounts
+            .map((a) =>
+              card(
+                esc(a.name) + " · " + a.type,
+                cash(bal(a.id)),
+                "Posted balance",
+              ),
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+      function settings() {
+        return (
+          '<h2 class="text-2xl font-bold">Settings</h2><section class="mt-5 rounded-2xl bg-white p-4"><h3 class="font-bold">Categories</h3><form id="cat" class="mt-3 flex gap-2"><input required name="name" class="min-w-0 flex-1 rounded-xl border px-3" placeholder="New category"><button class="rounded-xl bg-teal-600 px-3 text-white">Add</button></form><div class="mt-3 flex flex-wrap gap-2">' +
+          D.categories
+            .map(
+              (c) =>
+                '<span class="rounded-full bg-slate-100 px-3 py-1 text-xs">' +
+                esc(c) +
+                "</span>",
+            )
+            .join("") +
+          '</div></section><section class="mt-4 rounded-2xl bg-white p-4"><h3 class="font-bold">Your data</h3><p class="text-sm text-slate-500">Stored locally in this browser.</p><div class="mt-3 grid grid-cols-2 gap-2"><button id="export" class="rounded-xl bg-slate-100 py-2 text-sm font-semibold">Export JSON</button><label class="cursor-pointer rounded-xl bg-slate-100 py-2 text-center text-sm font-semibold">Import JSON<input id="import" type="file" class="hidden"></label></div></section>'
+        );
+      }
+      const opts = () =>
+          D.accounts
+            .map(
+              (a) =>
+                '<option value="' +
+                a.id +
+                '">' +
+                esc(a.name) +
+                " · " +
+                a.type +
+                "</option>",
+            )
+            .join(""),
+        cats = () =>
+          D.categories.map((c) => "<option>" + esc(c) + "</option>").join("");
+      function open(t, b) {
+        $("#mtitle").textContent = t;
+        $("#mbody").innerHTML = b;
+        $("#modal").classList.add("open");
+        bind();
+      }
+      function close() {
+        $("#modal").classList.remove("open");
+        $("#drawer").classList.remove("open");
+        $("#shade").classList.add("hidden");
+      }
+      function form(k, rec = false) {
+        return (
+          '<form data-f="' +
+          (rec ? "rec" : "entry") +
+          '"><input name="kind" value="' +
+          k +
+          '" type="hidden"><label class="field">Description<input required name="description" placeholder="e.g. ' +
+          (k === "income" ? "Salary" : "Monthly rent") +
+          '"></label><label class="field">Amount (₹)<input required name="amount" type="number" min=".01"></label>' +
+          (rec
+            ? '<label class="field">Approximate day of month<input name="day" type="number" min="1" max="31" value="1"></label>'
+            : '<label class="field">' +
+              (k === "income" ? "Credit" : "Debit") +
+              ' date<input name="date" type="date" value="' +
+              today() +
+              '"></label>') +
+          '<label class="field">Account<select name="accountId">' +
+          opts() +
+          "</select></label>" +
+          (k === "investment"
+            ? ""
+            : '<label class="field">Category<select name="category">' +
+              cats() +
+              "</select></label>") +
+          '<label class="mt-4 flex gap-2 text-sm"><input name="manual" type="checkbox" checked> Require manual approval before balance changes</label><div class="mt-5 flex gap-2"><button type="button" class="close flex-1 rounded-xl border py-2">Cancel</button><button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></div></form>'
+        );
+      }
+      function act(a, i, k) {
+        if (a === "new") open("Add " + k, form(k));
+        if (a === "newrec") open("Add recurring " + k, form(k, true));
+        if (a === "post") {
+          D.entries.find((e) => e.id === i).status = "posted";
+          save();
+          render();
+        }
+        if (a === "del") {
+          D.entries = D.entries.filter((e) => e.id !== i);
+          save();
+          render();
+        }
+        if (a === "run") {
+          let r = D.recurring.find((x) => x.id === i),
+            n = new Date();
+          D.entries.push({
+            id: id(),
+            ...r,
+            date:
+              n.getFullYear() +
+              "-" +
+              String(n.getMonth() + 1).padStart(2, "0") +
+              "-" +
+              String(Math.min(r.day, 28)).padStart(2, "0"),
+            status: r.manual ? "pending" : "posted",
+          });
+          save();
+          render();
+        }
+        if (a === "transfer")
+          open(
+            "New transfer",
+            '<form data-f="transfer"><label class="field">Amount (₹)<input required name="amount" type="number" min=".01"></label><label class="field">From<select name="fromAccount">' +
+              opts() +
+              '</select></label><label class="field">To<select name="toAccount">' +
+              opts() +
+              '</select></label><label class="field">Date<input name="date" type="date" value="' +
+              today() +
+              '"></label><button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">Transfer</button></form>',
+          );
+        if (a === "loan")
+          open(
+            "Record lending",
+            '<form data-f="loan"><label class="field">Person<input required name="person"></label><label class="field">Amount (₹)<input required name="amount" type="number"></label><label class="field">Lent on<input name="date" type="date" value="' +
+              today() +
+              '"></label><label class="field">Expected return<input required name="returnDate" type="date" value="' +
+              today() +
+              '"></label><button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></form>',
+          );
+        if (a === "settle") {
+          D.lending.find((l) => l.id === i).settled = true;
+          save();
+          render();
+        }
+        if (a === "account")
+          open(
+            "Add account",
+            '<form data-f="account"><label class="field">Account name<input required name="name"></label><label class="field">Type<select name="type"><option>Bank</option><option>Wallet</option><option>Cash</option></select></label><button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">Add</button></form>',
+          );
+      }
+      function bind() {
+        document.querySelectorAll("[data-v]").forEach(
+          (x) =>
+            (x.onclick = () => {
+              V = x.dataset.v;
+              close();
+              render();
+            }),
+        );
+        document.querySelectorAll(".close").forEach((x) => (x.onclick = close));
+        document
+          .querySelectorAll("[data-a]")
+          .forEach(
+            (x) =>
+              (x.onclick = () =>
+                act(
+                  x.dataset.a,
+                  x.dataset.i,
+                  x.dataset.a === "new" || x.dataset.a === "newrec"
+                    ? x.dataset.i
+                    : "",
+                )),
+          );
+        document.querySelectorAll("[data-p]").forEach(
+          (x) =>
+            (x.onclick = () => {
+              P = x.dataset.p;
+              render();
+            }),
+        );
+        document.querySelectorAll("form[data-f]").forEach(
+          (f) =>
+            (f.onsubmit = (e) => {
+              e.preventDefault();
+              let o = Object.fromEntries(new FormData(f));
+              if (f.dataset.f === "entry") {
+                o.id = id();
+                o.amount = +o.amount;
+                o.manual = !!o.manual;
+                o.status = o.manual ? "pending" : "posted";
+                D.entries.push(o);
+              }
+              if (f.dataset.f === "rec") {
+                o.id = id();
+                o.amount = +o.amount;
+                o.day = +o.day;
+                o.manual = !!o.manual;
+                D.recurring.push(o);
+              }
+              if (f.dataset.f === "transfer") {
+                if (o.fromAccount === o.toAccount)
+                  return alert("Choose different accounts.");
+                D.entries.push({
+                  id: id(),
+                  kind: "transfer",
+                  amount: +o.amount,
+                  ...o,
+                  status: "posted",
+                });
+              }
+              if (f.dataset.f === "loan") {
+                o.id = id();
+                o.amount = +o.amount;
+                o.settled = false;
+                D.lending.push(o);
+              }
+              if (f.dataset.f === "account")
+                D.accounts.push({ id: id(), ...o });
+              save();
+              close();
+              render();
+            }),
+        );
+        let c = $("#cat");
+        if (c)
+          c.onsubmit = (e) => {
+            e.preventDefault();
+            let n = e.target.name.value.trim();
+            if (n && !D.categories.includes(n)) {
+              D.categories.push(n);
+              save();
+              render();
+            }
+          };
+        let e = $("#export");
+        if (e)
+          e.onclick = () => {
+            let a = document.createElement("a");
+            a.href = URL.createObjectURL(
+              new Blob([JSON.stringify(D, null, 2)]),
+            );
+            a.download = "ledger-backup.json";
+            a.click();
+          };
+        let im = $("#import");
+        if (im)
+          im.onchange = (e) => {
+            let r = new FileReader();
+            r.onload = () => {
+              try {
+                let v = JSON.parse(r.result);
+                if (v.accounts && v.entries && confirm("Replace all data?")) {
+                  D = v;
+                  save();
+                  render();
+                }
+              } catch {
+                alert("Invalid backup");
+              }
+            };
+            r.readAsText(e.target.files[0]);
+          };
+      }
+      $("#menu").onclick = () => {
+        $("#drawer").classList.add("open");
+        $("#shade").classList.remove("hidden");
+      };
+      $("#shade").onclick = close;
+      render();
+    </script>
+  </body>
+</html>
