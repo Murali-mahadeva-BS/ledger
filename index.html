@@ -50,6 +50,10 @@
       .pending-out {
         background: linear-gradient(135deg, #fda4af, #60a5fa);
       }
+      .dark body { background:#020617; color:#e2e8f0 }
+      .dark header,.dark aside,.dark .bg-white { background:#0f172a!important; color:#e2e8f0 }
+      .dark .text-slate-500,.dark .text-slate-400 { color:#94a3b8!important }
+      .dark .bg-slate-100 { background:#1e293b!important }
     </style>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
@@ -63,7 +67,7 @@
           <p id="sub" class="text-xs text-slate-500"></p>
         </div>
       </div>
-      <button id="theme">◐</button>
+      <button id="theme" class="grid h-10 w-10 place-items-center rounded-xl text-xl hover:bg-slate-100" aria-label="Toggle dark mode">◐</button>
     </header>
     <main id="app" class="mx-auto max-w-6xl p-4 pb-12"></main>
     <div id="shade" class="fixed inset-0 z-30 hidden bg-black/40"></div>
@@ -701,7 +705,7 @@
             '<form data-f="account"><label class="field">Account name<input required name="name"></label><label class="field">Type<select name="type"><option>Bank</option><option>Wallet</option><option>Cash</option></select></label><button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">Add</button></form>',
           );
       }
-      function bind() {
+      function bindLegacy() {
         document.querySelectorAll("[data-v]").forEach(
           (x) =>
             (x.onclick = () => {
@@ -814,6 +818,119 @@
             r.readAsText(e.target.files[0]);
           };
       }
+      // The flow form deliberately keeps one-time and recurring setup together.
+      let dashboardPeriod = "month:" + today().slice(0, 7),
+        calendarMonth = today().slice(0, 7);
+      const titleOf = (item) => item.title || item.description || "Untitled";
+      function monthChoices(selected, years = 4) {
+        const start = new Date();
+        start.setMonth(start.getMonth() - 12 * years);
+        const out = [];
+        for (let i = 0; i < 12 * years + 24; i++) {
+          const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+          const value = d.toISOString().slice(0, 7);
+          out.push(
+            '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">" +
+              d.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) +
+              "</option>",
+          );
+        }
+        return out.join("");
+      }
+      function periodChoices(selected) {
+        const months = monthChoices(selected.replace("month:", ""));
+        const years = [];
+        for (let year = new Date().getFullYear(); year >= new Date().getFullYear() - 4; year--) {
+          const value = "year:" + year;
+          years.push('<option value="' + value + '"' + (value === selected ? " selected" : "") + ">Entire " + year + "</option>");
+        }
+        return '<optgroup label="Months">' + months.replaceAll('value="', 'value="month:') + '</optgroup><optgroup label="Years">' + years.join("") + "</optgroup>";
+      }
+      function dashboard() {
+        const [mode, selected] = dashboardPeriod.split(":");
+        const entries = D.entries.filter((e) => e.date.startsWith(selected));
+        const income = entries.filter((e) => posted(e) && e.kind === "income").reduce((n, e) => n + +e.amount, 0);
+        const out = entries.filter((e) => posted(e) && !["income", "transfer"].includes(e.kind)).reduce((n, e) => n + +e.amount, 0);
+        const future = D.entries.filter((e) => !posted(e) && e.date >= today()).reduce((n, e) => n + sign(e), 0);
+        const overdue = D.entries.filter((e) => !posted(e) && e.date < today());
+        const loans = D.lending.filter((l) => !l.settled && l.returnDate < today());
+        return '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Overview</h2><p class="text-sm text-slate-500">Posted money, due approvals, and forecast.</p></div><label class="text-sm font-semibold">Period<select id="dashboardPeriod" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' + periodChoices(dashboardPeriod) + '</select></label></div><div class="grid grid-cols-2 gap-3 lg:grid-cols-4">' +
+          card("Total balance", cash(total()), "Posted only", "text-teal-700") +
+          card("Forecast balance", cash(total() + future), "Future approvals included") +
+          card("Income", cash(income), "Posted in selected " + mode, "text-emerald-600") +
+          card("Expenses + investments", cash(out), "Posted in selected " + mode, "text-rose-600") +
+          '</div><h3 class="mb-2 mt-5 font-bold">Account balances</h3><div class="grid gap-2 sm:grid-cols-2">' +
+          D.accounts.map((a) => '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' + esc(a.name) + '</b> <small class="text-slate-500">' + a.type + '</small></span><b>' + cash(bal(a.id)) + "</b></div>").join("") +
+          "</div>" + attention(overdue, loans);
+      }
+      function typeView(kind, heading, description) {
+        const entries = D.entries.filter((e) => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date));
+        const recurring = D.recurring.filter((r) => r.kind === kind);
+        return '<div class="flex items-end justify-between"><div><h2 class="text-2xl font-bold">' + heading + '</h2><p class="text-sm text-slate-500">' + description + '</p></div>' +
+          btn("Add " + kind, "new-flow", kind, "rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white") +
+          '</div><section class="mt-5"><h3 class="mb-2 font-bold">Entries</h3>' + (entries.length ? '<div class="space-y-2">' + entries.map(row).join("") + "</div>" : empty("No " + kind + " entries yet.")) +
+          '</section><section class="mt-5"><h3 class="mb-2 font-bold">Recurring schedules</h3>' + (recurring.length ? '<div class="space-y-2">' + recurring.map(recrow).join("") + "</div>" : empty("No recurring schedules.")) + "</section>";
+      }
+      function attention(over, loans) {
+        if (!over.length && !loans.length) return "";
+        return '<section class="mt-5"><h3 class="mb-2 font-bold">Needs attention</h3><div class="space-y-2">' +
+          over.map((e) => '<div class="flex justify-between rounded-xl bg-amber-50 p-3"><span><b>' + esc(titleOf(e)) + '</b><small class="block">Due ' + date(e.date) + " · " + e.kind + "</small></span>" + btn("Mark posted", "post", e.id, "rounded-lg bg-amber-200 px-2 text-xs") + "</div>").join("") +
+          loans.map((l) => '<div class="rounded-xl bg-rose-50 p-3"><b>' + esc(l.person) + "</b> owes " + cash(l.amount) + '<small class="block">Return date was ' + date(l.returnDate) + "</small></div>").join("") +
+          "</div></section>";
+      }
+      function row(e) {
+        const plus = e.kind === "income";
+        return '<div class="flex items-center justify-between rounded-2xl bg-white p-3 shadow-sm"><span><b>' + esc(titleOf(e)) + '</b><small class="block text-slate-500">' + date(e.date) + " · " + esc(acc(e.accountId)) + (e.manual ? " · manual" : "") + (e.note ? " · note saved" : "") + '</small></span><span class="text-right"><b class="' + (plus ? "text-emerald-600" : "text-rose-600") + '">' + (plus ? "+" : "−") + cash(e.amount) + "</b><br>" + (!posted(e) ? btn("Mark posted", "post", e.id, "text-xs font-semibold text-teal-700") : btn("Delete", "del", e.id, "text-xs text-rose-500")) + "</span></div>";
+      }
+      function recrow(r) {
+        return '<div class="flex justify-between rounded-xl bg-white p-3"><span><b>' + esc(titleOf(r)) + '</b><small class="block text-slate-500">' + cash(r.amount) + " · around day " + r.day + " · " + (r.manual ? "manual approval" : "auto post") + "</small></span>" + btn("Create due entry", "run", r.id, "rounded-lg bg-teal-50 px-2 text-xs text-teal-700") + "</div>";
+      }
+      function calendar() {
+        const [y, m] = calendarMonth.split("-").map(Number);
+        const last = new Date(y, m, 0).getDate(), first = new Date(y, m - 1, 1).getDay(), cells = Array(first).fill("<div></div>");
+        for (let i = 1; i <= last; i++) {
+          const day = calendarMonth + "-" + String(i).padStart(2, "0"), items = D.entries.filter((e) => e.date === day);
+          cells.push('<div class="min-h-24 rounded-lg border p-1"><small class="text-slate-400">' + i + "</small>" + items.map((e) => '<div class="mt-1 truncate rounded px-1 text-[10px] text-white ' + (!posted(e) ? (e.kind === "income" ? "pending-in" : "pending-out") : (e.kind === "income" ? "bg-emerald-500" : "bg-rose-500")) + '">' + esc(titleOf(e)) + " " + cash(e.amount) + "</div>").join("") + "</div>");
+        }
+        return '<div class="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-2xl font-bold">Calendar</h2><p class="text-sm text-slate-500">Green income, red outflow, blue gradients awaiting approval.</p></div><label class="text-sm font-semibold">Month<select id="calendarMonth" class="ml-2 rounded-xl border bg-transparent p-2 font-normal">' + monthChoices(calendarMonth) + '</select></label></div><div class="rounded-2xl bg-white p-3"><div class="mb-2 grid grid-cols-7 text-center text-xs text-slate-400"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="grid grid-cols-7 gap-1">' + cells.join("") + "</div></div>";
+      }
+      function flowForm(kind) {
+        return '<form data-f="flow"><input name="kind" type="hidden" value="' + kind + '"><label class="field">Title<input required name="title" maxlength="80" placeholder="e.g. ' + (kind === "income" ? "Salary" : "Monthly rent") + '"></label><label class="field">Amount (₹)<input required name="amount" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></label><label class="field">Entry type<select name="recurring" data-recurring-select><option value="false">One-time</option><option value="true">Recurring monthly</option></select></label><div data-onetime><label class="field">' + (kind === "income" ? "Credit" : "Debit") + ' date<input name="date" type="date" value="' + today() + '"></label></div><div data-recurring class="hidden"><label class="field">Approximate day of month<input name="day" type="number" min="1" max="31" value="1"></label></div><label class="field">Account<select name="accountId">' + opts() + '</select></label>' + (kind === "investment" ? "" : '<label class="field">Category<select name="category">' + cats() + "</select></label>") + '<label class="field">Note <span class="font-normal text-slate-500">(optional)</span><textarea name="note" rows="3" maxlength="500" class="mt-1 w-full rounded-xl border p-2 font-normal" placeholder="Anything useful to remember"></textarea></label><label class="mt-4 flex gap-2 text-sm"><input name="manual" type="checkbox" checked> Require manual approval before balance changes</label><div class="mt-5 flex gap-2"><button type="button" class="close flex-1 rounded-xl border py-2">Cancel</button><button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">Save</button></div></form>';
+      }
+      const previousBind = bindLegacy;
+      function bind() {
+        previousBind();
+        document.querySelectorAll('[data-a="new-flow"]').forEach((button) => button.onclick = () => open("Add " + button.dataset.i, flowForm(button.dataset.i)));
+        document.querySelectorAll("[data-recurring-select]").forEach((select) => select.onchange = () => {
+          const form = select.closest("form"), recurring = select.value === "true";
+          form.querySelector("[data-onetime]").classList.toggle("hidden", recurring);
+          form.querySelector("[data-recurring]").classList.toggle("hidden", !recurring);
+        });
+        document.querySelectorAll('form[data-f="flow"]').forEach((form) => form.onsubmit = (event) => {
+          event.preventDefault();
+          const entry = Object.fromEntries(new FormData(form));
+          entry.id = id(); entry.amount = +entry.amount; entry.manual = !!entry.manual;
+          if (entry.recurring === "true") {
+            entry.day = +entry.day; delete entry.date; delete entry.recurring;
+            D.recurring.push(entry);
+          } else {
+            delete entry.day; delete entry.recurring;
+            entry.status = entry.manual ? "pending" : "posted";
+            D.entries.push(entry);
+          }
+          save(); close(); render();
+        });
+        const dash = $("#dashboardPeriod");
+        if (dash) dash.onchange = () => { dashboardPeriod = dash.value; render(); };
+        const cal = $("#calendarMonth");
+        if (cal) cal.onchange = () => { calendarMonth = cal.value; render(); };
+      }
+      $("#modal").onclick = (event) => { if (event.target === $("#modal")) close(); };
+      $("#theme").onclick = () => {
+        document.documentElement.classList.toggle("dark");
+        localStorage.setItem("ledger-dark", document.documentElement.classList.contains("dark"));
+      };
+      if (localStorage.getItem("ledger-dark") === "true") document.documentElement.classList.add("dark");
       $("#menu").onclick = () => {
         $("#drawer").classList.add("open");
         $("#shade").classList.remove("hidden");
