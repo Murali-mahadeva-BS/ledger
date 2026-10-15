@@ -17,7 +17,12 @@ export function LendBorrowForm({ isLend, onSubmit }: LendBorrowFormProps) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ person, amount: Number(amount), date, returnDate });
+        onSubmit({
+          person,
+          amount: Math.round(Number(amount)),
+          date,
+          returnDate,
+        });
       }}
     >
       <label class="field">
@@ -33,7 +38,9 @@ export function LendBorrowForm({ isLend, onSubmit }: LendBorrowFormProps) {
         <input
           required
           type="number"
-          min=".01"
+          min="1"
+          step="1"
+          inputmode="numeric"
           value={amount}
           onInput={(e) => setAmount(e.currentTarget.value)}
         />

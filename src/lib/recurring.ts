@@ -1,5 +1,5 @@
 import { makeId } from "./id";
-import { today } from "./format";
+import { cash, today } from "./format";
 import type { LedgerData } from "./types";
 
 // Recurring schedules materialize into real entries so the calendar and every
@@ -16,7 +16,9 @@ export function reconcileRecurring(data: LedgerData): boolean {
     const startMonth = schedule.startMonth || currentMonth;
     let [year, month] = startMonth.split("-").map(Number);
     const [endYear, endMonth] = currentMonth.split("-").map(Number);
+    let periodIndex = 0;
     while (year < endYear || (year === endYear && month <= endMonth)) {
+      if (schedule.months && periodIndex >= schedule.months) break;
       const period = year + "-" + String(month).padStart(2, "0");
       const dueDate =
         period +
@@ -28,16 +30,25 @@ export function reconcileRecurring(data: LedgerData): boolean {
         (entry) => entry.recurringId === schedule.id && entry.period === period,
       );
       if (!exists && (schedule.manual || dueDate <= today())) {
+        const id = makeId();
         data.entries.push({
           ...schedule,
-          id: makeId(),
+          id,
           recurringId: schedule.id,
           period,
           date: dueDate,
           status: schedule.manual ? "pending" : "posted",
         });
+        data.auditLog.push({
+          id: makeId(),
+          entryId: id,
+          action: "Created",
+          detail: `${schedule.title ?? "Recurring entry"} \u00b7 ${cash(schedule.amount)} (recurring)`,
+          timestamp: new Date().toISOString(),
+        });
         changed = true;
       }
+      periodIndex++;
       month++;
       if (month > 12) {
         month = 1;

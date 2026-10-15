@@ -73,8 +73,7 @@ export function DashboardView(_props: { path?: string }) {
 
   return (
     <div>
-      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h2 class="text-2xl font-bold">Overview</h2>
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
         <PeriodSelect
           data={d}
           value={period}

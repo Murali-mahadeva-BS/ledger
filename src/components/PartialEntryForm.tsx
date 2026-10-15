@@ -14,7 +14,7 @@ export function PartialEntryForm({ entry, onSubmit }: PartialEntryFormProps) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(Number(amount));
+        onSubmit(Math.round(Number(amount)));
       }}
     >
       <p class="text-sm text-slate-500">Total due: {cash(entry.amount)}</p>
@@ -23,9 +23,10 @@ export function PartialEntryForm({ entry, onSubmit }: PartialEntryFormProps) {
         <input
           required
           type="number"
-          min="0.01"
+          min="1"
           max={entry.amount}
-          step="any"
+          step="1"
+          inputmode="numeric"
           placeholder="e.g. 7000"
           value={amount}
           onInput={(e) => setAmount(e.currentTarget.value)}

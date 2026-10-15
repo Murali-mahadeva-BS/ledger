@@ -40,3 +40,10 @@ export function inSelectedPeriod(entry: Entry, periodValue: string): boolean {
   const selected = periodValue.split(":")[1];
   return !!entry.date && entry.date.startsWith(selected);
 }
+
+// Newest first, so the detail page reads like a timeline.
+export function auditLogForEntry(data: LedgerData, entryId: string) {
+  return data.auditLog
+    .filter((a) => a.entryId === entryId)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}

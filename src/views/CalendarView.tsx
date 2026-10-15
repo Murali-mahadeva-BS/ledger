@@ -59,8 +59,7 @@ export function CalendarView(_props: { path?: string }) {
 
   return (
     <div>
-      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h2 class="text-2xl font-bold">Calendar</h2>
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
         <label class="text-sm font-semibold">
           Month
           <select

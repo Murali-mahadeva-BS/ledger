@@ -35,6 +35,7 @@ export interface RecurringSchedule {
   amount: number;
   day: number;
   startMonth?: string;
+  months?: number;
   accountId: string;
   category?: string;
   note?: string;
@@ -51,6 +52,16 @@ export interface LendBorrowRecord {
   settled: boolean;
 }
 
+// One record per action taken on an entry (created/edited/posted/etc.), kept
+// forever so a detail page can show a full history for that entry.
+export interface AuditLogEntry {
+  id: string;
+  entryId: string;
+  timestamp: string;
+  action: string;
+  detail?: string;
+}
+
 export interface LedgerData {
   accounts: Account[];
   categories: string[];
@@ -58,4 +69,5 @@ export interface LedgerData {
   recurring: RecurringSchedule[];
   lending: LendBorrowRecord[];
   loans: LendBorrowRecord[];
+  auditLog: AuditLogEntry[];
 }

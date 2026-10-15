@@ -20,7 +20,12 @@ export function TransferForm({ onSubmit }: TransferFormProps) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ amount: Number(amount), fromAccount, toAccount, date });
+        onSubmit({
+          amount: Math.round(Number(amount)),
+          fromAccount,
+          toAccount,
+          date,
+        });
       }}
     >
       <label class="field">
@@ -28,7 +33,9 @@ export function TransferForm({ onSubmit }: TransferFormProps) {
         <input
           required
           type="number"
-          min=".01"
+          min="1"
+          step="1"
+          inputmode="numeric"
           value={amount}
           onInput={(e) => setAmount(e.currentTarget.value)}
         />

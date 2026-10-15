@@ -19,7 +19,7 @@ export function PartialLendBorrowForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(Number(amount));
+        onSubmit(Math.round(Number(amount)));
       }}
     >
       <p class="text-sm text-slate-500">Outstanding: {cash(item.amount)}</p>
@@ -28,9 +28,10 @@ export function PartialLendBorrowForm({
         <input
           required
           type="number"
-          min="0.01"
+          min="1"
           max={item.amount}
-          step="any"
+          step="1"
+          inputmode="numeric"
           value={amount}
           onInput={(e) => setAmount(e.currentTarget.value)}
         />

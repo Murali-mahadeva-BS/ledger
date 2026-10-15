@@ -30,8 +30,7 @@ export function TransferView(_props: { path?: string }) {
 
   return (
     <div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-2xl font-bold">Transfers</h2>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <button
           class="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white"
           onClick={openTransferModal}

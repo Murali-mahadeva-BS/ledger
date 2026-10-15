@@ -1,6 +1,7 @@
 import { signal } from "@preact/signals";
 import { makeId } from "./id";
-import { entryTitle } from "./selectors";
+import { accountName, entryTitle } from "./selectors";
+import { cash } from "./format";
 import { reconcileRecurring } from "./recurring";
 import { loadData, saveData } from "./storage";
 import type {
@@ -27,6 +28,58 @@ function mutate(fn: (d: LedgerData) => void) {
   persist();
 }
 
+// Records a step in an entry's history for the detail page's audit log.
+function logAudit(
+  d: LedgerData,
+  entryId: string,
+  action: string,
+  detail?: string,
+) {
+  d.auditLog.push({
+    id: makeId(),
+    entryId,
+    action,
+    detail,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function formatAuditValue(label: string, v: unknown): string {
+  if (label === "Amount") return cash(Number(v) || 0);
+  if (label === "Manual approval") return v ? "Yes" : "No";
+  if (v === undefined || v === null || v === "") return "(empty)";
+  return String(v);
+}
+
+// Builds a "Field: before -> after" summary listing only the fields that
+// actually changed, so the audit log shows exactly what an edit did.
+function describeEntryChanges(
+  d: LedgerData,
+  before: Entry,
+  after: OneTimeEntryInput,
+): string {
+  const rows: Array<[string, unknown, unknown]> = [
+    ["Title", before.title, after.title],
+    ["Amount", before.amount, after.amount],
+    ["Date", before.date, after.date],
+    [
+      "Account",
+      before.accountId ? accountName(d, before.accountId) : undefined,
+      accountName(d, after.accountId),
+    ],
+    ["Category", before.category, after.category],
+    ["Note", before.note, after.note],
+    ["Manual approval", before.manual, after.manual],
+  ];
+  return rows
+    .filter(([, b, a]) => b !== a)
+    .map(
+      ([label, b, a]) =>
+        `${label}: ${formatAuditValue(label, b)} \u2192 ${formatAuditValue(label, a)}`,
+    )
+    .join("; ");
+}
+
 if (reconcileRecurring(data.value)) {
   persist();
 }
@@ -46,18 +99,25 @@ export interface OneTimeEntryInput {
 
 export function addOneTimeEntry(input: OneTimeEntryInput) {
   mutate((d) => {
+    const id = makeId();
     d.entries.push({
-      id: makeId(),
+      id,
       ...input,
       status: input.manual ? "pending" : "posted",
     });
+    logAudit(d, id, "Created", `${input.title} · ₹${input.amount}`);
   });
 }
 
 export function updateOneTimeEntry(entryId: string, input: OneTimeEntryInput) {
   mutate((d) => {
     const idx = d.entries.findIndex((e) => e.id === entryId);
-    if (idx > -1) d.entries[idx] = { ...d.entries[idx], ...input };
+    if (idx > -1) {
+      const before = d.entries[idx];
+      d.entries[idx] = { ...before, ...input };
+      const detail = describeEntryChanges(d, before, input);
+      if (detail) logAudit(d, entryId, "Edited", detail);
+    }
   });
 }
 
@@ -67,6 +127,7 @@ export interface RecurringEntryInput {
   amount: number;
   day: number;
   startMonth: string;
+  months?: number;
   accountId: string;
   category?: string;
   note?: string;
@@ -76,6 +137,7 @@ export interface RecurringEntryInput {
 export function addRecurringSchedule(input: RecurringEntryInput) {
   mutate((d) => {
     d.recurring.push({ id: makeId(), ...input });
+    reconcileRecurring(d);
   });
 }
 
@@ -88,26 +150,35 @@ export function convertEntryToRecurring(
   mutate((d) => {
     d.recurring.push({ id: makeId(), ...input });
     d.entries = d.entries.filter((e) => e.id !== entryId);
+    reconcileRecurring(d);
   });
 }
 
 export function postEntry(entryId: string) {
   mutate((d) => {
     const entry = d.entries.find((e) => e.id === entryId);
-    if (entry) entry.status = "posted";
+    if (entry) {
+      entry.status = "posted";
+      logAudit(d, entryId, "Posted");
+    }
   });
 }
 
 export function unpostEntry(entryId: string) {
   mutate((d) => {
     const entry = d.entries.find((e) => e.id === entryId);
-    if (entry) entry.status = "pending";
+    if (entry) {
+      entry.status = "pending";
+      logAudit(d, entryId, "Reverted to pending");
+    }
   });
 }
 
 export function deleteEntry(entryId: string) {
   mutate((d) => {
+    const existed = d.entries.some((e) => e.id === entryId);
     d.entries = d.entries.filter((e) => e.id !== entryId);
+    if (existed) logAudit(d, entryId, "Deleted");
   });
 }
 
@@ -131,9 +202,10 @@ export function partialSettleEntry(entryId: string, amountNow: number) {
     const idx = d.entries.findIndex((e) => e.id === entryId);
     const current = d.entries[idx];
     const remainder = current.amount - amountNow;
+    const remainderId = makeId();
     d.entries[idx] = { ...current, amount: amountNow, status: "posted" };
     d.entries.push({
-      id: makeId(),
+      id: remainderId,
       kind: current.kind,
       title: entryTitle(current) + " (remaining)",
       amount: remainder,
@@ -144,6 +216,18 @@ export function partialSettleEntry(entryId: string, amountNow: number) {
       manual: true,
       status: "pending",
     });
+    logAudit(
+      d,
+      entryId,
+      "Partially settled",
+      `₹${amountNow} now, ₹${remainder} left as a new pending entry`,
+    );
+    logAudit(
+      d,
+      remainderId,
+      "Created",
+      `Remaining ₹${remainder} from a partial settlement`,
+    );
   });
 }
 

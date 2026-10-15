@@ -23,6 +23,7 @@ export const defaultData = (): LedgerData => ({
   recurring: [],
   lending: [],
   loans: [],
+  auditLog: [],
 });
 
 export function loadData(): LedgerData {
@@ -30,7 +31,12 @@ export function loadData(): LedgerData {
   if (!raw) return defaultData();
   try {
     const parsed = JSON.parse(raw) as Partial<LedgerData>;
-    return { ...defaultData(), ...parsed, loans: parsed.loans ?? [] };
+    return {
+      ...defaultData(),
+      ...parsed,
+      loans: parsed.loans ?? [],
+      auditLog: parsed.auditLog ?? [],
+    };
   } catch {
     return defaultData();
   }

@@ -39,8 +39,7 @@ export function SettingsView(_props: { path?: string }) {
 
   return (
     <div>
-      <h2 class="text-2xl font-bold">Settings</h2>
-      <section class="mt-5 rounded-2xl bg-white p-4">
+      <section class="rounded-2xl bg-white p-4">
         <h3 class="font-bold">Expense categories</h3>
         <form
           class="mt-3 flex gap-2"

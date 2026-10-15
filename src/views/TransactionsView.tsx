@@ -23,13 +23,13 @@ import { closeModal, openModal, tabPeriods } from "../lib/ui";
 
 type FlowKind = Exclude<EntryKind, "transfer">;
 
-const KIND_COLOR: Record<FlowKind, string> = {
+export const KIND_COLOR: Record<FlowKind, string> = {
   income: "text-emerald-600",
   expense: "text-rose-600",
   investment: "text-violet-600",
 };
 
-const approveLabel = (kind: FlowKind) =>
+export const approveLabel = (kind: FlowKind) =>
   kind === "income" ? "Credited" : "Debited";
 
 function handleFlowSubmit(
@@ -44,6 +44,7 @@ function handleFlowSubmit(
       amount: result.amount,
       day: result.day,
       startMonth: result.startMonth,
+      months: result.months,
       accountId: result.accountId,
       category: result.category,
       note: result.note,
@@ -68,7 +69,7 @@ function handleFlowSubmit(
   closeModal();
 }
 
-function openFlowModal(kind: FlowKind, entry?: Entry) {
+export function openFlowModal(kind: FlowKind, entry?: Entry) {
   openModal(
     (entry ? "Edit " : "Add ") + kind,
     <FlowForm
@@ -79,7 +80,7 @@ function openFlowModal(kind: FlowKind, entry?: Entry) {
   );
 }
 
-function openPartialModal(entry: Entry) {
+export function openPartialModal(entry: Entry) {
   openModal(
     "Partial " + approveLabel(entry.kind as FlowKind).toLowerCase(),
     <PartialEntryForm
@@ -96,7 +97,7 @@ function openPartialModal(entry: Entry) {
   );
 }
 
-function handleDelete(entry: Entry) {
+export function handleDelete(entry: Entry) {
   if (entry.recurringId) {
     if (
       !confirm(
@@ -113,6 +114,31 @@ function handleDelete(entry: Entry) {
 function EntryRow({ entry }: { entry: Entry }) {
   const plus = entry.kind === "income";
   const kind = entry.kind as FlowKind;
+  if (kind === "income") {
+    return (
+      <a
+        href={"/income/" + entry.id}
+        class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl bg-white p-3 shadow-sm"
+      >
+        <div class="min-w-0">
+          <b class="block truncate">{entryTitle(entry)}</b>
+          <small class="block text-slate-500">{formatDate(entry.date)}</small>
+        </div>
+        <div class="flex min-w-0 items-center justify-end gap-2 sm:justify-end">
+          {!isPosted(entry) && (
+            <span class="pending-badge rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+              Pending
+            </span>
+          )}
+          <b class={KIND_COLOR[kind]}>
+            {plus ? "+" : "−"}
+            {cash(entry.amount)}
+          </b>
+        </div>
+      </a>
+    );
+  }
+
   return (
     <div class="grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
       <div class="min-w-0">
@@ -198,7 +224,6 @@ function TransactionsView({
     <div>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <h2 class="text-2xl font-bold">{heading}</h2>
           <PeriodSelect
             data={d}
             value={period}

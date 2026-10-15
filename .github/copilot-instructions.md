@@ -33,3 +33,8 @@ Personal finance tracker (income/expense/investment/transfers/lending/loans/cale
 ## History
 
 This app was migrated from a single-file vanilla JS/HTML app to Preact. See `docs/MIGRATION.md` for the full step-by-step history and rationale if you need context on why something is structured the way it is.
+
+## Agent workflow
+
+- Do not run `npm run build`, `npm test`, or share/open the site in a browser unless the user explicitly asks for it — this saves tokens. Just make the code change.
+- Keep responses short. Resolve open questions/ambiguity about the request before making code changes rather than guessing.

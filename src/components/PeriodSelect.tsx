@@ -13,9 +13,9 @@ export function PeriodSelect({ data, value, onChange }: PeriodSelectProps) {
     ? value.slice("month:".length)
     : months[0];
   return (
-    <label class="flex min-w-0 items-center gap-2 text-sm font-semibold">
-      Period
+    <div class="min-w-0">
       <select
+        aria-label="Period"
         class="min-w-0 flex-1 rounded-xl border bg-white p-2 font-normal sm:flex-none"
         value={"month:" + selectedMonth}
         onChange={(e) => onChange(e.currentTarget.value)}
@@ -29,6 +29,6 @@ export function PeriodSelect({ data, value, onChange }: PeriodSelectProps) {
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }

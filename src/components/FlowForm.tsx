@@ -22,6 +22,7 @@ export type FlowFormResult =
       amount: number;
       day: number;
       startMonth: string;
+      months?: number;
       accountId: string;
       category?: string;
       note?: string;
@@ -50,6 +51,14 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
   const [startMonth, setStartMonth] = useState(
     entry ? entry.date.slice(0, 7) : today().slice(0, 7),
   );
+  const [months, setMonths] = useState(
+    entry?.recurringId
+      ? String(
+          data.value.recurring.find((r) => r.id === entry.recurringId)
+            ?.months ?? "",
+        )
+      : "",
+  );
   const [accountId, setAccountId] = useState(
     entry?.accountId ?? accounts[0]?.id ?? "",
   );
@@ -73,7 +82,7 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
         e.preventDefault();
         const shared = {
           title,
-          amount: Number(amount),
+          amount: Math.round(Number(amount)),
           accountId,
           category: kind === "expense" ? category : undefined,
           note,
@@ -85,6 +94,7 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
             recurring: true,
             day: Number(day),
             startMonth,
+            months: months ? Math.round(Number(months)) : undefined,
           });
         } else {
           onSubmit({ ...shared, recurring: false, date });
@@ -106,9 +116,9 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
         <input
           required
           type="number"
-          min="0"
-          step="any"
-          inputmode="decimal"
+          min="1"
+          step="1"
+          inputmode="numeric"
           placeholder="0"
           value={amount}
           onInput={(e) => setAmount(e.currentTarget.value)}
@@ -162,6 +172,19 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
                   type="month"
                   value={startMonth}
                   onInput={(e) => setStartMonth(e.currentTarget.value)}
+                />
+              </label>
+              <label class="field">
+                Recur for how long
+                <span class="font-normal text-slate-500"></span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  placeholder="Indefinite"
+                  value={months}
+                  onInput={(e) => setMonths(e.currentTarget.value)}
                 />
               </label>
             </>

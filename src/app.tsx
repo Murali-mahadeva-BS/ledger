@@ -5,6 +5,7 @@ import { ModalHost } from "./components/ModalHost";
 import { AccountsView } from "./views/AccountsView";
 import { CalendarView } from "./views/CalendarView";
 import { DashboardView } from "./views/DashboardView";
+import { IncomeEntryDetailView } from "./views/EntryDetailView";
 import { LendingView, LoanView } from "./views/LendBorrowView";
 import { PlaceholderView } from "./views/PlaceholderView";
 import { SettingsView } from "./views/SettingsView";
@@ -23,6 +24,7 @@ export function App() {
         <Router>
           <DashboardView path="/" />
           <IncomeView path="/income" />
+          <IncomeEntryDetailView path="/income/:id" />
           <ExpenseView path="/expense" />
           <InvestmentView path="/investment" />
           <TransferView path="/transfer" />
