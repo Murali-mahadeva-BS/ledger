@@ -1,11 +1,10 @@
-import { render } from "preact";
-import { LocationProvider } from "preact-iso";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import { App } from "./app.tsx";
 
-render(
-  <LocationProvider>
+createRoot(document.getElementById("app")!).render(
+  <BrowserRouter>
     <App />
-  </LocationProvider>,
-  document.getElementById("app")!,
+  </BrowserRouter>,
 );

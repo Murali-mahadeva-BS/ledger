@@ -1,7 +1,9 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import { cash } from "../lib/format";
 import type { Entry } from "../lib/types";
 import { closeModal } from "../lib/ui";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface PartialEntryFormProps {
   entry: Entry;
@@ -17,35 +19,36 @@ export function PartialEntryForm({ entry, onSubmit }: PartialEntryFormProps) {
         onSubmit(Math.round(Number(amount)));
       }}
     >
-      <p class="text-sm text-slate-500">Total due: {cash(entry.amount)}</p>
-      <label class="field">
+      <p className="text-sm text-slate-500">Total due: {cash(entry.amount)}</p>
+      <label className="field">
         Amount now (₹)
-        <input
+        <Input
           required
           type="number"
           min="1"
           max={entry.amount}
           step="1"
-          inputmode="numeric"
+          inputMode="numeric"
           placeholder="e.g. 7000"
           value={amount}
-          onInput={(e) => setAmount(e.currentTarget.value)}
+          onChange={(e) => setAmount(e.currentTarget.value)}
         />
       </label>
-      <p class="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-500">
         The remaining balance stays as a new pending entry.
       </p>
-      <div class="mt-5 flex gap-2">
-        <button
+      <div className="mt-5 flex gap-2">
+        <Button
+          variant="outline"
           type="button"
-          class="flex-1 rounded-xl border py-2"
+          className="flex-1"
           onClick={closeModal}
         >
           Cancel
-        </button>
-        <button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">
+        </Button>
+        <Button className="flex-1">
           Save
-        </button>
+        </Button>
       </div>
     </form>
   );

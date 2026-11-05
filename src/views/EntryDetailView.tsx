@@ -1,4 +1,5 @@
-import { useLocation, useRoute } from "preact-iso";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useStore } from "zustand";
 import { PencilIcon, RepeatIcon, TrashIcon } from "../components/icons";
 import { cash, formatDate } from "../lib/format";
 import {
@@ -16,6 +17,7 @@ import {
   openFlowModal,
   openPartialModal,
 } from "./TransactionsView";
+import { Button } from "../components/ui/button";
 
 type FlowKind = Exclude<EntryKind, "transfer">;
 
@@ -28,17 +30,17 @@ function EntryDetail({
   id: string;
   backPath: string;
 }) {
-  const { route } = useLocation();
-  const d = data.value;
+  const d = useStore(data);
+  const navigate = useNavigate();
   const entry = d.entries.find((e) => e.id === id);
 
   if (!entry) {
     return (
       <div>
-        <a href={backPath} class="text-sm font-semibold text-teal-700">
+        <Link to={backPath} className="text-sm font-semibold text-teal-700">
           ← Back
-        </a>
-        <p class="mt-4 text-sm text-slate-500">This entry no longer exists.</p>
+        </Link>
+        <p className="mt-4 text-sm text-slate-500">This entry no longer exists.</p>
       </div>
     );
   }
@@ -48,111 +50,115 @@ function EntryDetail({
 
   return (
     <div>
-      <a href={backPath} class="text-sm font-semibold text-teal-700">
+      <Link to={backPath} className="text-sm font-semibold text-teal-700">
         ← Back
-      </a>
-      <div class="mt-3 rounded-2xl bg-white p-4 shadow-sm">
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <h2 class="truncate text-xl font-bold">
+      </Link>
+      <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold">
               {entryTitle(entry)}
               {entry.recurringId && (
-                <span title="Recurring monthly" class="ml-1 text-teal-600">
+                <span title="Recurring monthly" className="ml-1 text-teal-600">
                   <RepeatIcon />
                 </span>
               )}
             </h2>
-            <small class="block text-slate-500">{formatDate(entry.date)}</small>
+            <small className="block text-slate-500">{formatDate(entry.date)}</small>
           </div>
-          <b class={"whitespace-nowrap text-xl " + KIND_COLOR[kind]}>
+          <b className={"whitespace-nowrap text-xl " + KIND_COLOR[kind]}>
             {plus ? "+" : "−"}
             {cash(entry.amount)}
           </b>
         </div>
-        <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt class="text-slate-500">Status</dt>
-            <dd class="font-semibold">
+            <dt className="text-slate-500">Status</dt>
+            <dd className="font-semibold">
               {isPosted(entry) ? "Posted" : "Pending"}
             </dd>
           </div>
           <div>
-            <dt class="text-slate-500">Account</dt>
-            <dd class="font-semibold">
+            <dt className="text-slate-500">Account</dt>
+            <dd className="font-semibold">
               {accountName(d, entry.accountId ?? "")}
             </dd>
           </div>
           {entry.category && (
             <div>
-              <dt class="text-slate-500">Category</dt>
-              <dd class="font-semibold">{entry.category}</dd>
+              <dt className="text-slate-500">Category</dt>
+              <dd className="font-semibold">{entry.category}</dd>
             </div>
           )}
           {entry.note && (
-            <div class="col-span-2">
-              <dt class="text-slate-500">Note</dt>
+            <div className="col-span-2">
+              <dt className="text-slate-500">Note</dt>
               <dd>{entry.note}</dd>
             </div>
           )}
         </dl>
-        <div class="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {!isPosted(entry) && (
             <>
-              <button
-                class="rounded-xl bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700"
+              <Button
+                size="sm"
+                className="rounded-xl bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700"
                 onClick={() => postEntry(entry.id)}
               >
                 {approveLabel(kind)}
-              </button>
-              <button
-                class="rounded-xl border px-3 py-2 text-sm font-semibold text-teal-700"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-teal-700"
                 onClick={() => openPartialModal(entry)}
               >
                 Partial
-              </button>
+              </Button>
             </>
           )}
-          <button
-            class="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold text-slate-700"
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700"
             onClick={() => openFlowModal(kind, entry)}
           >
             <PencilIcon /> Edit
-          </button>
-          <button
-            class="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600"
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
             onClick={() => {
               handleDelete(entry);
-              if (!data.value.entries.some((e) => e.id === entry.id)) {
-                route(backPath);
+              if (!data.getState().entries.some((e) => e.id === entry.id)) {
+                navigate(backPath);
               }
             }}
           >
             <TrashIcon /> Delete
-          </button>
+          </Button>
         </div>
       </div>
 
-      <section class="mt-5">
-        <h3 class="mb-2 font-bold">Logs</h3>
+      <section className="mt-5">
+        <h3 className="mb-2 font-bold">Logs</h3>
         {log.length ? (
-          <ul class="space-y-2">
+          <ul className="space-y-2">
             {log.map((item) => (
-              <li
-                key={item.id}
-                class="rounded-2xl bg-white p-3 text-sm shadow-sm"
-              >
+              <li key={item.id} className="rounded-2xl bg-white p-3 text-sm shadow-sm">
                 <b>{item.action}</b>
                 {item.detail && (
-                  <span class="text-slate-500"> — {item.detail}</span>
+                  <span className="text-slate-500"> — {item.detail}</span>
                 )}
-                <small class="block text-slate-500">
+                <small className="block text-slate-500">
                   {new Date(item.timestamp).toLocaleString("en-IN")}
                 </small>
               </li>
             ))}
           </ul>
         ) : (
-          <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
             No activity recorded yet.
           </div>
         )}
@@ -162,6 +168,6 @@ function EntryDetail({
 }
 
 export function IncomeEntryDetailView(_props: { path?: string }) {
-  const { params } = useRoute();
-  return <EntryDetail kind="income" id={params.id} backPath="/income" />;
+  const { id } = useParams();
+  return <EntryDetail kind="income" id={id ?? ""} backPath="/income" />;
 }

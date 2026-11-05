@@ -1,14 +1,24 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
+import { useStore } from "zustand";
 import { today } from "../lib/format";
 import type { TransferInput } from "../lib/store";
 import { data } from "../lib/store";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface TransferFormProps {
   onSubmit: (input: TransferInput) => void;
 }
 
 export function TransferForm({ onSubmit }: TransferFormProps) {
-  const accounts = data.value.accounts;
+  const accounts = useStore(data).accounts;
   const [amount, setAmount] = useState("");
   const [fromAccount, setFromAccount] = useState(accounts[0]?.id ?? "");
   const [toAccount, setToAccount] = useState(
@@ -28,55 +38,59 @@ export function TransferForm({ onSubmit }: TransferFormProps) {
         });
       }}
     >
-      <label class="field">
+      <label className="field">
         Amount (₹)
-        <input
+        <Input
           required
           type="number"
           min="1"
           step="1"
-          inputmode="numeric"
+          inputMode="numeric"
           value={amount}
-          onInput={(e) => setAmount(e.currentTarget.value)}
+          onChange={(e) => setAmount(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         From
-        <select
-          value={fromAccount}
-          onChange={(e) => setFromAccount(e.currentTarget.value)}
-        >
+        <Select value={fromAccount} onValueChange={setFromAccount}>
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
           {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
+            <SelectItem key={a.id} value={a.id}>
               {a.name} · {a.type}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+          </SelectContent>
+        </Select>
       </label>
-      <label class="field">
+      <label className="field">
         To
-        <select
-          value={toAccount}
-          onChange={(e) => setToAccount(e.currentTarget.value)}
-        >
+        <Select value={toAccount} onValueChange={setToAccount}>
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
           {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
+            <SelectItem key={a.id} value={a.id}>
               {a.name} · {a.type}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+          </SelectContent>
+        </Select>
       </label>
-      <label class="field">
+      <label className="field">
         Date
-        <input
+        <Input
           type="date"
           value={date}
-          onInput={(e) => setDate(e.currentTarget.value)}
+          onChange={(e) => setDate(e.currentTarget.value)}
         />
       </label>
-      <button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">
+      <Button className="mt-5 w-full">
         Transfer
-      </button>
+      </Button>
     </form>
   );
 }

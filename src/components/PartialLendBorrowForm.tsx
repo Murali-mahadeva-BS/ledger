@@ -1,7 +1,9 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import { cash } from "../lib/format";
 import type { LendBorrowRecord } from "../lib/types";
 import { closeModal } from "../lib/ui";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface PartialLendBorrowFormProps {
   item: LendBorrowRecord;
@@ -22,31 +24,32 @@ export function PartialLendBorrowForm({
         onSubmit(Math.round(Number(amount)));
       }}
     >
-      <p class="text-sm text-slate-500">Outstanding: {cash(item.amount)}</p>
-      <label class="field">
+      <p className="text-sm text-slate-500">Outstanding: {cash(item.amount)}</p>
+      <label className="field">
         Amount {which === "lending" ? "received" : "paid"} now (₹)
-        <input
+        <Input
           required
           type="number"
           min="1"
           max={item.amount}
           step="1"
-          inputmode="numeric"
+          inputMode="numeric"
           value={amount}
-          onInput={(e) => setAmount(e.currentTarget.value)}
+          onChange={(e) => setAmount(e.currentTarget.value)}
         />
       </label>
-      <div class="mt-5 flex gap-2">
-        <button
+      <div className="mt-5 flex gap-2">
+        <Button
+          variant="outline"
           type="button"
-          class="flex-1 rounded-xl border py-2"
+          className="flex-1"
           onClick={closeModal}
         >
           Cancel
-        </button>
-        <button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">
+        </Button>
+        <Button className="flex-1">
           Save
-        </button>
+        </Button>
       </div>
     </form>
   );

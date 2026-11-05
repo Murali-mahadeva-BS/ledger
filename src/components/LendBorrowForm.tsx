@@ -1,6 +1,8 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import { today } from "../lib/format";
 import type { LendBorrowInput } from "../lib/store";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface LendBorrowFormProps {
   isLend: boolean;
@@ -25,46 +27,46 @@ export function LendBorrowForm({ isLend, onSubmit }: LendBorrowFormProps) {
         });
       }}
     >
-      <label class="field">
+      <label className="field">
         Person
-        <input
+        <Input
           required
           value={person}
-          onInput={(e) => setPerson(e.currentTarget.value)}
+          onChange={(e) => setPerson(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         Amount (₹)
-        <input
+        <Input
           required
           type="number"
           min="1"
           step="1"
-          inputmode="numeric"
+          inputMode="numeric"
           value={amount}
-          onInput={(e) => setAmount(e.currentTarget.value)}
+          onChange={(e) => setAmount(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         {isLend ? "Lent on" : "Borrowed on"}
-        <input
+        <Input
           type="date"
           value={date}
-          onInput={(e) => setDate(e.currentTarget.value)}
+          onChange={(e) => setDate(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         {isLend ? "Expected return" : "Repay by"}
-        <input
+        <Input
           required
           type="date"
           value={returnDate}
-          onInput={(e) => setReturnDate(e.currentTarget.value)}
+          onChange={(e) => setReturnDate(e.currentTarget.value)}
         />
       </label>
-      <button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">
+      <Button className="mt-5 w-full">
         Save
-      </button>
+      </Button>
     </form>
   );
 }

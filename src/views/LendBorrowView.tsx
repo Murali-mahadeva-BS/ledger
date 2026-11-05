@@ -1,3 +1,4 @@
+import { useStore } from "zustand";
 import { IconButton } from "../components/IconButton";
 import { LendBorrowForm } from "../components/LendBorrowForm";
 import { PartialLendBorrowForm } from "../components/PartialLendBorrowForm";
@@ -12,6 +13,8 @@ import {
 } from "../lib/store";
 import type { LendBorrowRecord } from "../lib/types";
 import { closeModal, openModal } from "../lib/ui";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 
 type LendBorrowList = "lending" | "loans";
 
@@ -55,27 +58,24 @@ function LendBorrowView({
   heading: string;
 }) {
   const isLend = list === "lending";
-  const items = data.value[list];
+  const items = useStore(data)[list];
   const settledLabel = isLend ? "Received" : "Repaid";
   const settleLabel = isLend ? "Mark received" : "Mark repaid";
   const verb = isLend ? " owes you " : "You owe ";
 
   return (
     <div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <button
-          class="rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white"
-          onClick={() => openAddModal(list)}
-        >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <Button onClick={() => openAddModal(list)}>
           {isLend ? "Record lending" : "Record loan"}
-        </button>
+        </Button>
       </div>
-      <div class="mt-5 space-y-2">
+      <div className="mt-5 space-y-2">
         {items.length ? (
           items.map((item) => (
             <div
               key={item.id}
-              class="flex items-center justify-between rounded-xl bg-white p-3"
+              className="flex items-center justify-between rounded-xl bg-white p-3"
             >
               <span>
                 {isLend ? (
@@ -90,7 +90,7 @@ function LendBorrowView({
                     <b>{item.person}</b>
                   </>
                 )}
-                <small class="block text-slate-500">
+                <small className="block text-slate-500">
                   {isLend ? "Lent " : "Borrowed "}
                   {formatDate(item.date)} · {isLend ? "return " : "repay by "}
                   {formatDate(item.returnDate)}
@@ -101,24 +101,28 @@ function LendBorrowView({
                     : ""}
                 </small>
               </span>
-              <span class="flex items-center gap-1">
+              <span className="flex items-center gap-1">
                 {!isLend && <b>{cash(item.amount)}</b>}
                 {item.settled ? (
-                  <span class="text-xs text-teal-700">{settledLabel}</span>
+                  <Badge variant="secondary" className="text-teal-700">{settledLabel}</Badge>
                 ) : (
                   <>
-                    <button
-                      class="text-xs text-teal-700"
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-xs text-teal-700"
                       onClick={() => settleLendBorrow(list, item.id)}
                     >
                       {settleLabel}
-                    </button>
-                    <button
-                      class="text-xs text-teal-700"
+                    </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-xs text-teal-700"
                       onClick={() => openPartialModal(list, item)}
                     >
                       Partial
-                    </button>
+                    </Button>
                   </>
                 )}
                 <IconButton
@@ -132,7 +136,7 @@ function LendBorrowView({
             </div>
           ))
         ) : (
-          <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
             No {heading.toLowerCase()} recorded.
           </div>
         )}

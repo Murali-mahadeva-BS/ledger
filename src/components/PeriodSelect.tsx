@@ -1,5 +1,12 @@
 import { monthsWithEntries } from "../lib/selectors";
 import type { LedgerData } from "../lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface PeriodSelectProps {
   data: LedgerData;
@@ -13,22 +20,20 @@ export function PeriodSelect({ data, value, onChange }: PeriodSelectProps) {
     ? value.slice("month:".length)
     : months[0];
   return (
-    <div class="min-w-0">
-      <select
-        aria-label="Period"
-        class="min-w-0 flex-1 rounded-xl border bg-white p-2 font-normal sm:flex-none"
-        value={"month:" + selectedMonth}
-        onChange={(e) => onChange(e.currentTarget.value)}
-      >
+    <Select value={"month:" + selectedMonth} onValueChange={onChange}>
+      <SelectTrigger aria-label="Period" className="min-w-0 sm:flex-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
         {months.map((m) => (
-          <option key={m} value={"month:" + m}>
+          <SelectItem key={m} value={"month:" + m}>
             {new Date(m + "-01T12:00:00").toLocaleDateString("en-IN", {
               month: "long",
               year: "numeric",
             })}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-    </div>
+      </SelectContent>
+    </Select>
   );
 }

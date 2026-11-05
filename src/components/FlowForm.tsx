@@ -1,9 +1,20 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
+import { useStore } from "zustand";
 import { today } from "../lib/format";
 import { entryTitle } from "../lib/selectors";
 import { data } from "../lib/store";
 import type { Entry, EntryKind } from "../lib/types";
 import { closeModal } from "../lib/ui";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Textarea } from "./ui/textarea";
 
 export type FlowFormResult =
   | {
@@ -36,10 +47,11 @@ interface FlowFormProps {
 }
 
 export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
+  const ledgerData = useStore(data);
   const isEdit = !!entry;
   const lockedRecurring = isEdit && !!entry?.recurringId;
-  const accounts = data.value.accounts;
-  const categories = data.value.categories;
+  const accounts = ledgerData.accounts;
+  const categories = ledgerData.categories;
 
   const [title, setTitle] = useState(entry ? entryTitle(entry) : "");
   const [amount, setAmount] = useState(entry ? String(entry.amount) : "");
@@ -54,7 +66,7 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
   const [months, setMonths] = useState(
     entry?.recurringId
       ? String(
-          data.value.recurring.find((r) => r.id === entry.recurringId)
+          ledgerData.recurring.find((r) => r.id === entry.recurringId)
             ?.months ?? "",
         )
       : "",
@@ -101,133 +113,142 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
         }
       }}
     >
-      <label class="field">
+      <label className="field">
         Title
-        <input
+        <Input
           required
           maxLength={80}
           value={title}
           placeholder={"e.g. " + placeholder}
-          onInput={(e) => setTitle(e.currentTarget.value)}
+          onChange={(e) => setTitle(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         Amount (₹)
-        <input
+        <Input
           required
           type="number"
           min="1"
           step="1"
-          inputmode="numeric"
+          inputMode="numeric"
           placeholder="0"
           value={amount}
-          onInput={(e) => setAmount(e.currentTarget.value)}
+          onChange={(e) => setAmount(e.currentTarget.value)}
         />
       </label>
       {lockedRecurring ? (
-        <label class="field">
+        <label className="field">
           {dateLabel}
-          <input
+          <Input
             type="date"
             value={date}
-            onInput={(e) => setDate(e.currentTarget.value)}
+            onChange={(e) => setDate(e.currentTarget.value)}
           />
         </label>
       ) : (
         <>
-          <label class="field">
+          <label className="field">
             Entry type
-            <select
+            <Select
               value={recurring ? "true" : "false"}
-              onChange={(e) => setRecurring(e.currentTarget.value === "true")}
+              onValueChange={(value) => setRecurring(value === "true")}
             >
-              <option value="false">One-time</option>
-              <option value="true">Recurring monthly</option>
-            </select>
+              <SelectTrigger className="mt-1 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="false">One-time</SelectItem>
+                <SelectItem value="true">Recurring monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           {!recurring ? (
-            <label class="field">
+            <label className="field">
               {dateLabel}
-              <input
+              <Input
                 type="date"
                 value={date}
-                onInput={(e) => setDate(e.currentTarget.value)}
+                onChange={(e) => setDate(e.currentTarget.value)}
               />
             </label>
           ) : (
             <>
-              <label class="field">
+              <label className="field">
                 Day of month
-                <input
+                <Input
                   type="number"
                   min="1"
                   max="31"
                   value={day}
-                  onInput={(e) => setDay(e.currentTarget.value)}
+                  onChange={(e) => setDay(e.currentTarget.value)}
                 />
               </label>
-              <label class="field">
+              <label className="field">
                 Starts from
-                <input
+                <Input
                   type="month"
                   value={startMonth}
-                  onInput={(e) => setStartMonth(e.currentTarget.value)}
+                  onChange={(e) => setStartMonth(e.currentTarget.value)}
                 />
               </label>
-              <label class="field">
+              <label className="field">
                 Recur for how long
-                <span class="font-normal text-slate-500"></span>
-                <input
+                <span className="font-normal text-slate-500"></span>
+                <Input
                   type="number"
                   min="1"
                   step="1"
-                  inputmode="numeric"
+                  inputMode="numeric"
                   placeholder="Indefinite"
                   value={months}
-                  onInput={(e) => setMonths(e.currentTarget.value)}
+                  onChange={(e) => setMonths(e.currentTarget.value)}
                 />
               </label>
             </>
           )}
         </>
       )}
-      <label class="field">
+      <label className="field">
         Account
-        <select
-          value={accountId}
-          onChange={(e) => setAccountId(e.currentTarget.value)}
-        >
+        <Select value={accountId} onValueChange={setAccountId}>
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
           {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
+            <SelectItem key={a.id} value={a.id}>
               {a.name} · {a.type}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+          </SelectContent>
+        </Select>
       </label>
       {kind === "expense" && (
-        <label class="field">
+        <label className="field">
           Category
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.currentTarget.value)}
-          >
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="mt-1 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
             {categories.map((c) => (
-              <option key={c}>{c}</option>
+              <SelectItem key={c} value={c}>{c}</SelectItem>
             ))}
-          </select>
+            </SelectContent>
+          </Select>
         </label>
       )}
-      <label class="field">
-        Note <span class="font-normal text-slate-500">(optional)</span>
-        <textarea
+      <label className="field">
+        Note <span className="font-normal text-slate-500">(optional)</span>
+        <Textarea
           rows={3}
           maxLength={500}
           placeholder="Anything useful to remember"
           value={note}
-          onInput={(e) => setNote(e.currentTarget.value)}
+          onChange={(e) => setNote(e.currentTarget.value)}
         />
       </label>
-      <label class="mt-4 flex gap-2 text-sm">
+      <label className="mt-4 flex gap-2 text-sm">
         <input
           type="checkbox"
           checked={manual}
@@ -235,17 +256,18 @@ export function FlowForm({ kind, entry, onSubmit }: FlowFormProps) {
         />
         Require manual approval before balance changes
       </label>
-      <div class="mt-5 flex gap-2">
-        <button
+      <div className="mt-5 flex gap-2">
+        <Button
           type="button"
-          class="flex-1 rounded-xl border py-2"
+          variant="outline"
+          className="flex-1"
           onClick={closeModal}
         >
           Cancel
-        </button>
-        <button class="flex-1 rounded-xl bg-teal-600 py-2 font-semibold text-white">
+        </Button>
+        <Button className="flex-1">
           {isEdit ? "Save changes" : "Save"}
-        </button>
+        </Button>
       </div>
     </form>
   );

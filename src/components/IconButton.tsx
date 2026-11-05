@@ -1,10 +1,11 @@
-import type { ComponentChildren } from "preact";
+import type { ReactNode } from "react";
+import { Button } from "./ui/button";
 
 interface IconButtonProps {
   onClick: () => void;
   label: string;
   danger?: boolean;
-  children: ComponentChildren;
+  children: ReactNode;
 }
 
 export function IconButton({
@@ -14,14 +15,16 @@ export function IconButton({
   children,
 }: IconButtonProps) {
   return (
-    <button
-      class={"icon-btn" + (danger ? " danger" : "")}
+    <Button
+      variant={danger ? "destructive" : "ghost"}
+      size="icon"
+      className="shrink-0"
       onClick={onClick}
       aria-label={label}
       title={label}
       type="button"
     >
       {children}
-    </button>
+    </Button>
   );
 }

@@ -1,37 +1,54 @@
-import { signal } from "@preact/signals";
-import type { ComponentChildren } from "preact";
+import { createStore } from "zustand/vanilla";
+import type { ReactNode } from "react";
 import { today } from "./format";
 import type { EntryKind } from "./types";
 
-export const drawerOpen = signal(false);
-
-// Selected dashboard period, format "month:YYYY-MM". Kept outside the view so
-// it survives navigating away and back, like the original app's module state.
-export const dashboardPeriod = signal("month:" + today().slice(0, 7));
-
-// Same idea, one selected period per transactions tab.
-export const tabPeriods = signal<
-  Record<Exclude<EntryKind, "transfer">, string>
->({
-  income: "month:" + today().slice(0, 7),
-  expense: "month:" + today().slice(0, 7),
-  investment: "month:" + today().slice(0, 7),
-});
-
-// Calendar's selected month, format "YYYY-MM" (no "month:" prefix, unlike the period signals above).
-export const calendarMonth = signal(today().slice(0, 7));
-
 interface ModalState {
   title: string;
-  body: ComponentChildren;
+  body: ReactNode;
 }
 
-export const modal = signal<ModalState | null>(null);
+interface UiState {
+  drawerOpen: boolean;
+  dashboardPeriod: string;
+  tabPeriods: Record<Exclude<EntryKind, "transfer">, string>;
+  calendarMonth: string;
+  modal: ModalState | null;
+  setDrawerOpen: (open: boolean) => void;
+  setDashboardPeriod: (period: string) => void;
+  setTabPeriod: (kind: Exclude<EntryKind, "transfer">, period: string) => void;
+  setCalendarMonth: (month: string) => void;
+  openModal: (title: string, body: ReactNode) => void;
+  closeModal: () => void;
+}
 
-export function openModal(title: string, body: ComponentChildren) {
-  modal.value = { title, body };
+const currentMonth = today().slice(0, 7);
+
+export const uiStore = createStore<UiState>((set) => ({
+  drawerOpen: false,
+  dashboardPeriod: "month:" + currentMonth,
+  tabPeriods: {
+    income: "month:" + currentMonth,
+    expense: "month:" + currentMonth,
+    investment: "month:" + currentMonth,
+  },
+  calendarMonth: currentMonth,
+  modal: null,
+  setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
+  setDashboardPeriod: (dashboardPeriod) => set({ dashboardPeriod }),
+  setTabPeriod: (kind, period) =>
+    set((state) => ({
+      tabPeriods: { ...state.tabPeriods, [kind]: period },
+    })),
+  setCalendarMonth: (calendarMonth) => set({ calendarMonth }),
+  openModal: (title, body) => set({ modal: { title, body } }),
+  closeModal: () => set({ modal: null }),
+}));
+
+export function openModal(title: string, body: ReactNode) {
+  uiStore.getState().openModal(title, body);
 }
 
 export function closeModal() {
-  modal.value = null;
+  uiStore.getState().closeModal();
 }

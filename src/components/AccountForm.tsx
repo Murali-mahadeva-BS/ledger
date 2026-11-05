@@ -1,5 +1,14 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import type { Account, AccountType } from "../lib/types";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface AccountFormProps {
   account?: Account;
@@ -19,28 +28,30 @@ export function AccountForm({ account, onSubmit }: AccountFormProps) {
         onSubmit({ name: trimmed, type });
       }}
     >
-      <label class="field">
+      <label className="field">
         Account name
-        <input
+        <Input
           required
           value={name}
-          onInput={(e) => setName(e.currentTarget.value)}
+          onChange={(e) => setName(e.currentTarget.value)}
         />
       </label>
-      <label class="field">
+      <label className="field">
         Type
-        <select
-          value={type}
-          onChange={(e) => setType(e.currentTarget.value as AccountType)}
-        >
-          <option>Bank</option>
-          <option>Wallet</option>
-          <option>Cash</option>
-        </select>
+        <Select value={type} onValueChange={(value) => setType(value as AccountType)}>
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Bank">Bank</SelectItem>
+            <SelectItem value="Wallet">Wallet</SelectItem>
+            <SelectItem value="Cash">Cash</SelectItem>
+          </SelectContent>
+        </Select>
       </label>
-      <button class="mt-5 w-full rounded-xl bg-teal-600 py-2 font-semibold text-white">
+      <Button className="mt-5 w-full">
         {account ? "Save changes" : "Add"}
-      </button>
+      </Button>
     </form>
   );
 }

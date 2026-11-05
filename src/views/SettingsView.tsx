@@ -1,4 +1,6 @@
-import { useState } from "preact/hooks";
+import { useState, type ChangeEvent } from "react";
+import { useStore } from "zustand";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { IconButton } from "../components/IconButton";
 import { TrashIcon } from "../components/icons";
 import {
@@ -7,7 +9,11 @@ import {
   deleteCategory,
   exportBackup,
   importBackup,
+  resetData,
 } from "../lib/store";
+import { openModal } from "../lib/ui";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 function handleExport() {
   const anchor = document.createElement("a");
@@ -16,8 +22,19 @@ function handleExport() {
   anchor.click();
 }
 
-function handleImport(e: Event) {
-  const input = e.currentTarget as HTMLInputElement;
+function handleReset() {
+  openModal(
+    "Clear all data?",
+    <ConfirmDialog
+      message="This will permanently delete all accounts, entries, schedules and loans. This cannot be undone."
+      confirmLabel="Clear data"
+      onConfirm={resetData}
+    />,
+  );
+}
+
+function handleImport(e: ChangeEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
   const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
@@ -34,35 +51,35 @@ function handleImport(e: Event) {
 }
 
 export function SettingsView(_props: { path?: string }) {
+  const categories = useStore(data).categories;
   const [category, setCategory] = useState("");
-  const categories = data.value.categories;
 
   return (
     <div>
-      <section class="rounded-2xl bg-white p-4">
-        <h3 class="font-bold">Expense categories</h3>
+      <section className="rounded-2xl bg-white p-4">
+        <h3 className="font-bold">Expense categories</h3>
         <form
-          class="mt-3 flex gap-2"
+          className="mt-3 flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             addCategory(category);
             setCategory("");
           }}
         >
-          <input
+          <Input
             required
             value={category}
-            onInput={(e) => setCategory(e.currentTarget.value)}
-            class="h-11 min-w-0 flex-1 rounded-xl border px-3"
+            onChange={(e) => setCategory(e.currentTarget.value)}
+            className="h-11 min-w-0 flex-1 rounded-xl px-3"
             placeholder="New expense category"
           />
-          <button class="h-11 rounded-xl bg-teal-600 px-4 text-white">
+          <Button className="h-11 px-4">
             Add
-          </button>
+          </Button>
         </form>
-        <div class="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           {categories.map((c) => (
-            <span key={c} class="chip">
+            <span key={c} className="chip">
               {c}
               <IconButton
                 label="Remove"
@@ -75,25 +92,29 @@ export function SettingsView(_props: { path?: string }) {
           ))}
         </div>
       </section>
-      <section class="mt-4 rounded-2xl bg-white p-4">
-        <h3 class="font-bold">Your data</h3>
-        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button
-            class="rounded-xl bg-slate-100 py-2 text-sm font-semibold"
-            onClick={handleExport}
-          >
+      <section className="mt-4 rounded-2xl bg-white p-4">
+        <h3 className="font-bold">Your data</h3>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button variant="secondary" onClick={handleExport}>
             Export JSON
-          </button>
-          <label class="cursor-pointer rounded-xl bg-slate-100 py-2 text-center text-sm font-semibold">
+          </Button>
+          <label className="cursor-pointer rounded-xl bg-slate-100 py-2 text-center text-sm font-semibold">
             Import JSON
-            <input
+            <Input
               type="file"
               accept="application/json"
-              class="hidden"
+              className="hidden"
               onChange={handleImport}
             />
           </label>
         </div>
+        <Button
+          variant="destructive"
+          className="mt-3 w-full rounded-xl bg-red-50 py-2 text-sm font-semibold text-red-700"
+          onClick={handleReset}
+        >
+          Clear data
+        </Button>
       </section>
     </div>
   );

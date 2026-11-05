@@ -1,47 +1,53 @@
-import { useLocation } from "preact-iso";
+import { Link, useLocation } from "react-router-dom";
+import { useStore } from "zustand";
 import { NAV } from "../lib/nav";
-import { drawerOpen } from "../lib/ui";
+import { uiStore } from "../lib/ui";
+import { Button } from "./ui/button";
 
 export function Drawer() {
-  const { path } = useLocation();
+  const isOpen = useStore(uiStore, (state) => state.drawerOpen);
+  const setDrawerOpen = useStore(uiStore, (state) => state.setDrawerOpen);
+  const { pathname } = useLocation();
   return (
     <>
       <div
-        class={
-          "fixed inset-0 z-30 bg-black/40" + (drawerOpen.value ? "" : " hidden")
+        className={
+          "fixed inset-0 z-30 bg-black/40" + (isOpen ? "" : " hidden")
         }
-        onClick={() => (drawerOpen.value = false)}
+        onClick={() => setDrawerOpen(false)}
       />
       <aside
-        class={
+        className={
           "drawer fixed inset-y-0 left-0 z-40 w-[min(18rem,85vw)] bg-white p-4 shadow-2xl" +
-          (drawerOpen.value ? " open" : "")
+          (isOpen ? " open" : "")
         }
       >
-        <div class="mb-5 flex justify-between">
-          <b class="text-xl text-teal-700">ledger</b>
-          <button
-            class="text-2xl"
-            onClick={() => (drawerOpen.value = false)}
+        <div className="mb-5 flex justify-between">
+          <b className="text-xl text-teal-700">ledger</b>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-2xl"
+            onClick={() => setDrawerOpen(false)}
             aria-label="Close menu"
           >
             ×
-          </button>
+          </Button>
         </div>
-        <nav class="space-y-1">
+        <nav className="space-y-1">
           {NAV.map((item) => (
-            <a
+            <Link
               key={item.path}
-              href={item.path}
-              class={
+              to={item.path}
+              className={
                 "block w-full rounded-xl px-3 py-2 text-left " +
-                (path === item.path ? "active" : "")
+                (pathname === item.path ? "active" : "")
               }
-              onClick={() => (drawerOpen.value = false)}
+              onClick={() => setDrawerOpen(false)}
             >
-              <span class="mr-3">{item.icon}</span>
+              <span className="mr-3">{item.icon}</span>
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
       </aside>

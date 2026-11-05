@@ -1,9 +1,9 @@
-import { signal } from "@preact/signals";
 import { makeId } from "./id";
 import { accountName, entryTitle } from "./selectors";
 import { cash } from "./format";
 import { reconcileRecurring } from "./recurring";
-import { loadData, saveData } from "./storage";
+import { defaultData, loadData, saveData } from "./storage";
+import { createStore } from "zustand/vanilla";
 import type {
   Account,
   AccountType,
@@ -13,18 +13,19 @@ import type {
   LendBorrowRecord,
 } from "./types";
 
-export const data = signal<LedgerData>(loadData());
+export const data = createStore<LedgerData>(() => loadData());
 
 function persist() {
-  saveData(data.value);
+  saveData(data.getState());
 }
 
-// Mutates the current data object in place, then reassigns to trigger signal
-// subscribers and persist to storage. Validate inputs before calling this so
-// a thrown error never leaves a partial mutation applied.
+// Mutates the current data object in place, then publishes a new snapshot to
+// Zustand subscribers and persists it. Validate inputs first so errors do not
+// leave a partial mutation applied.
 function mutate(fn: (d: LedgerData) => void) {
-  fn(data.value);
-  data.value = { ...data.value };
+  const current = data.getState();
+  fn(current);
+  data.setState({ ...current });
   persist();
 }
 
@@ -80,7 +81,7 @@ function describeEntryChanges(
     .join("; ");
 }
 
-if (reconcileRecurring(data.value)) {
+if (reconcileRecurring(data.getState())) {
   persist();
 }
 
@@ -191,7 +192,7 @@ export function deleteRecurringSchedule(scheduleId: string) {
 }
 
 export function partialSettleEntry(entryId: string, amountNow: number) {
-  const orig = data.value.entries.find((e) => e.id === entryId);
+  const orig = data.getState().entries.find((e) => e.id === entryId);
   if (!orig) return;
   if (!(amountNow > 0) || amountNow >= orig.amount) {
     throw new Error(
@@ -283,7 +284,7 @@ export function partialSettleLendBorrow(
   id: string,
   amountNow: number,
 ) {
-  const item = data.value[list].find((l) => l.id === id);
+  const item = data.getState()[list].find((l) => l.id === id);
   if (!item) return;
   if (!(amountNow > 0) || amountNow > item.amount) {
     throw new Error(
@@ -328,7 +329,7 @@ export function updateAccount(accountId: string, input: AccountInput) {
 }
 
 export function deleteAccount(accountId: string) {
-  if (data.value.accounts.length <= 1) {
+  if (data.getState().accounts.length <= 1) {
     throw new Error("Keep at least one account.");
   }
   mutate((d) => {
@@ -347,7 +348,7 @@ export function deleteAccount(accountId: string) {
 
 export function addCategory(name: string) {
   const trimmed = name.trim();
-  if (!trimmed || data.value.categories.includes(trimmed)) return;
+  if (!trimmed || data.getState().categories.includes(trimmed)) return;
   mutate((d) => {
     d.categories.push(trimmed);
   });
@@ -362,7 +363,12 @@ export function deleteCategory(name: string) {
 // --- Import / export ---
 
 export function exportBackup(): string {
-  return JSON.stringify(data.value, null, 2);
+  return JSON.stringify(data.getState(), null, 2);
+}
+
+export function resetData() {
+  data.setState(defaultData(), true);
+  persist();
 }
 
 export function importBackup(json: string) {
@@ -371,7 +377,7 @@ export function importBackup(json: string) {
     throw new Error("Invalid backup");
   }
   if (!parsed.loans) parsed.loans = [];
-  data.value = parsed as LedgerData;
+  data.setState(parsed as LedgerData, true);
   persist();
 }
 

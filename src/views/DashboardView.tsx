@@ -1,6 +1,8 @@
+import { useStore } from "zustand";
 import { Card } from "../components/Card";
 import { PartialEntryForm } from "../components/PartialEntryForm";
 import { PeriodSelect } from "../components/PeriodSelect";
+import { Button } from "../components/ui/button";
 import { cash, formatDate, pct, today } from "../lib/format";
 import {
   accountBalance,
@@ -12,7 +14,7 @@ import {
 } from "../lib/selectors";
 import { data, partialSettleEntry, postEntry } from "../lib/store";
 import type { Entry } from "../lib/types";
-import { closeModal, dashboardPeriod, openModal } from "../lib/ui";
+import { closeModal, openModal, uiStore } from "../lib/ui";
 
 const approveLabel = (kind: Entry["kind"]) =>
   kind === "income" ? "Credited" : "Debited";
@@ -35,8 +37,12 @@ function openPartialModal(entry: Entry) {
 }
 
 export function DashboardView(_props: { path?: string }) {
-  const d = data.value;
-  const period = dashboardPeriod.value;
+  const d = useStore(data);
+  const period = useStore(uiStore, (state) => state.dashboardPeriod);
+  const setDashboardPeriod = useStore(
+    uiStore,
+    (state) => state.setDashboardPeriod,
+  );
   const entries = d.entries.filter((e) => inSelectedPeriod(e, period));
   const income = entries
     .filter((e) => isPosted(e) && e.kind === "income")
@@ -73,36 +79,49 @@ export function DashboardView(_props: { path?: string }) {
 
   return (
     <div>
-      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
         <PeriodSelect
           data={d}
           value={period}
-          onChange={(v) => (dashboardPeriod.value = v)}
+          onChange={setDashboardPeriod}
         />
       </div>
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Card title="Total balance" value={cash(total)} color="text-teal-700" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card
+          title="Total balance"
+          value={cash(total)}
+          color="text-teal-700"
+          href="/accounts"
+        />
         <Card
           title="Forecast balance"
           value={cash(total + future)}
           color="text-slate-700"
+          href="/calendar"
         />
-        <Card title="Income" value={cash(income)} color="text-emerald-600" />
+        <Card
+          title="Income"
+          value={cash(income)}
+          color="text-emerald-600"
+          href="/income"
+        />
         <Card
           title="Expenses"
           value={cash(expenses)}
           sub={expensePct}
           color="text-rose-600"
+          href="/expense"
         />
         <Card
           title="Investments"
           value={cash(investments)}
           sub={investmentPct}
           color="text-violet-600"
+          href="/investment"
         />
       </div>
-      <h3 class="mb-2 mt-5 font-bold">Account balances</h3>
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <h3 className="mb-2 mt-5 font-bold">Account balances</h3>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {d.accounts.map((a) => {
           const bal = accountBalance(d, a.id);
           return (
@@ -112,66 +131,72 @@ export function DashboardView(_props: { path?: string }) {
               value={cash(bal)}
               sub={a.type}
               color={bal < 0 ? "text-rose-600" : "text-teal-700"}
+              href="/accounts"
             />
           );
         })}
       </div>
-      <h3 class="mb-2 mt-5 font-bold">Lending &amp; loans</h3>
-      <div class="grid grid-cols-2 gap-3">
+      <h3 className="mb-2 mt-5 font-bold">Lending &amp; loans</h3>
+      <div className="grid grid-cols-2 gap-3">
         <Card
           title="Lending outstanding"
           value={cash(lendingOutstanding)}
           color="text-emerald-600"
+          href="/lending"
         />
         <Card
           title="Loans outstanding"
           value={cash(loansOutstanding)}
           color="text-rose-600"
+          href="/loan"
         />
       </div>
       {needsAttention && (
-        <section class="mt-5">
-          <h3 class="mb-2 font-bold">Needs attention</h3>
-          <div class="space-y-2">
+        <section className="mt-5">
+          <h3 className="mb-2 font-bold">Needs attention</h3>
+          <div className="space-y-2">
             {overdue.map((e) => (
               <div
                 key={e.id}
-                class="flex justify-between rounded-xl border bg-white p-3"
+                className="flex justify-between rounded-xl border bg-white p-3"
               >
                 <span>
                   <b>{entryTitle(e)}</b>
-                  <small class="block text-slate-500">
+                  <small className="block text-slate-500">
                     Due {formatDate(e.date)} · {e.kind}
                   </small>
                 </span>
                 <span>
-                  <button
-                    class="rounded-lg bg-teal-50 px-2 text-xs font-semibold text-teal-700"
+                  <Button
+                    size="sm"
+                    className="rounded-lg bg-teal-50 px-2 text-xs font-semibold text-teal-700"
                     onClick={() => postEntry(e.id)}
                   >
                     {approveLabel(e.kind)}
-                  </button>
-                  <button
-                    class="ml-1 text-xs font-semibold text-teal-700"
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="ml-1 text-xs font-semibold text-teal-700"
                     onClick={() => openPartialModal(e)}
                   >
                     Partial
-                  </button>
+                  </Button>
                 </span>
               </div>
             ))}
             {lendingOverdue.map((l) => (
-              <div key={l.id} class="rounded-xl border bg-white p-3">
+              <div key={l.id} className="rounded-xl border bg-white p-3">
                 <b>{l.person}</b> owes you {cash(l.amount)}
-                <small class="block text-slate-500">
+                <small className="block text-slate-500">
                   Return date was {formatDate(l.returnDate)}
                 </small>
               </div>
             ))}
             {loansOverdue.map((l) => (
-              <div key={l.id} class="rounded-xl border bg-white p-3">
+              <div key={l.id} className="rounded-xl border bg-white p-3">
                 You owe <b>{l.person}</b> {cash(l.amount)}
-                <small class="block text-slate-500">
+                <small className="block text-slate-500">
                   Repayment was due {formatDate(l.returnDate)}
                 </small>
               </div>

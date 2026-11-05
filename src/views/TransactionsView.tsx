@@ -1,8 +1,12 @@
+import { Link } from "react-router-dom";
+import { useStore } from "zustand";
 import { FlowForm, type FlowFormResult } from "../components/FlowForm";
 import { Card } from "../components/Card";
 import { IconButton } from "../components/IconButton";
 import { PartialEntryForm } from "../components/PartialEntryForm";
 import { PeriodSelect } from "../components/PeriodSelect";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { PencilIcon, RepeatIcon, TrashIcon } from "../components/icons";
 import { cash, formatDate } from "../lib/format";
 import { entryTitle, inSelectedPeriod, isPosted } from "../lib/selectors";
@@ -19,7 +23,7 @@ import {
   updateOneTimeEntry,
 } from "../lib/store";
 import type { Entry, EntryKind } from "../lib/types";
-import { closeModal, openModal, tabPeriods } from "../lib/ui";
+import { closeModal, openModal, uiStore } from "../lib/ui";
 
 type FlowKind = Exclude<EntryKind, "transfer">;
 
@@ -116,70 +120,75 @@ function EntryRow({ entry }: { entry: Entry }) {
   const kind = entry.kind as FlowKind;
   if (kind === "income") {
     return (
-      <a
-        href={"/income/" + entry.id}
-        class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl bg-white p-3 shadow-sm"
+      <Link
+        to={"/income/" + entry.id}
+        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl bg-white p-3 shadow-sm"
       >
-        <div class="min-w-0">
-          <b class="block truncate">{entryTitle(entry)}</b>
-          <small class="block text-slate-500">{formatDate(entry.date)}</small>
+        <div className="min-w-0">
+          <b className="block truncate">{entryTitle(entry)}</b>
+          <small className="block text-slate-500">{formatDate(entry.date)}</small>
         </div>
-        <div class="flex min-w-0 items-center justify-end gap-2 sm:justify-end">
+        <div className="flex min-w-0 items-center justify-end gap-2 sm:justify-end">
           {!isPosted(entry) && (
-            <span class="pending-badge rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+            <Badge variant="secondary" className="bg-amber-50 text-amber-700">
               Pending
-            </span>
+            </Badge>
           )}
-          <b class={KIND_COLOR[kind]}>
+          <b className={KIND_COLOR[kind]}>
             {plus ? "+" : "−"}
             {cash(entry.amount)}
           </b>
         </div>
-      </a>
+      </Link>
     );
   }
 
   return (
-    <div class="grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-      <div class="min-w-0">
-        <b class="block truncate">
+    <div className="grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="min-w-0">
+        <b className="block truncate">
           {entryTitle(entry)}
           {entry.recurringId && (
-            <span title="Recurring monthly" class="text-teal-600">
+            <span title="Recurring monthly" className="text-teal-600">
               {" "}
               <RepeatIcon />
             </span>
           )}
         </b>
-        <small class="block text-slate-500">{formatDate(entry.date)}</small>
+        <small className="block text-slate-500">{formatDate(entry.date)}</small>
       </div>
-      <div class="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:justify-end">
-        <b class={"mr-1 " + KIND_COLOR[kind]}>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:justify-end">
+        <b className={"mr-1 " + KIND_COLOR[kind]}>
           {plus ? "+" : "−"}
           {cash(entry.amount)}
         </b>
         {!isPosted(entry) ? (
           <>
-            <button
-              class="rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-700"
+            <Button
+              size="sm"
+              className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-700"
               onClick={() => postEntry(entry.id)}
             >
               {approveLabel(kind)}
-            </button>
-            <button
-              class="px-2 py-1 text-xs font-semibold text-teal-700"
+            </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="px-2 py-1 text-xs font-semibold text-teal-700"
               onClick={() => openPartialModal(entry)}
             >
               Partial
-            </button>
+            </Button>
           </>
         ) : (
-          <button
-            class="px-2 py-1 text-xs font-semibold text-slate-500"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 py-1 text-xs font-semibold text-slate-500"
             onClick={() => unpostEntry(entry.id)}
           >
             Undo
-          </button>
+          </Button>
         )}
         <IconButton label="Edit" onClick={() => openFlowModal(kind, entry)}>
           <PencilIcon />
@@ -194,7 +203,7 @@ function EntryRow({ entry }: { entry: Entry }) {
 
 function Empty({ text }: { text: string }) {
   return (
-    <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
       {text}
     </div>
   );
@@ -202,13 +211,12 @@ function Empty({ text }: { text: string }) {
 
 function TransactionsView({
   kind,
-  heading,
 }: {
   kind: FlowKind;
-  heading: string;
 }) {
-  const d = data.value;
-  const period = tabPeriods.value[kind];
+  const d = useStore(data);
+  const period = useStore(uiStore, (state) => state.tabPeriods[kind]);
+  const setTabPeriod = useStore(uiStore, (state) => state.setTabPeriod);
   const scoped = d.entries.filter(
     (e) => e.kind === kind && inSelectedPeriod(e, period),
   );
@@ -222,34 +230,29 @@ function TransactionsView({
 
   return (
     <div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <PeriodSelect
             data={d}
             value={period}
-            onChange={(v) =>
-              (tabPeriods.value = { ...tabPeriods.value, [kind]: v })
-            }
+            onChange={(v) => setTabPeriod(kind, v)}
           />
         </div>
-        <button
-          class="w-full rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white sm:w-auto"
-          onClick={() => openFlowModal(kind)}
-        >
+        <Button className="w-full sm:w-auto" onClick={() => openFlowModal(kind)}>
           Add {kind}
-        </button>
+        </Button>
       </div>
-      <div class="mt-3">
+      <div className="mt-3">
         <Card
           title="Total for period"
           value={cash(totalPosted)}
           color={KIND_COLOR[kind]}
         />
       </div>
-      <section class="mt-5">
-        <h3 class="mb-2 font-bold">Recurring</h3>
+      <section className="mt-5">
+        <h3 className="mb-2 font-bold">Recurring</h3>
         {recurring.length ? (
-          <div class="space-y-2">
+          <div className="space-y-2">
             {recurring.map((e) => (
               <EntryRow key={e.id} entry={e} />
             ))}
@@ -258,10 +261,10 @@ function TransactionsView({
           <Empty text={"No recurring " + kind + " this period."} />
         )}
       </section>
-      <section class="mt-5">
-        <h3 class="mb-2 font-bold">One-time</h3>
+      <section className="mt-5">
+        <h3 className="mb-2 font-bold">One-time</h3>
         {oneTime.length ? (
-          <div class="space-y-2">
+          <div className="space-y-2">
             {oneTime.map((e) => (
               <EntryRow key={e.id} entry={e} />
             ))}
@@ -275,13 +278,13 @@ function TransactionsView({
 }
 
 export function IncomeView(_props: { path?: string }) {
-  return <TransactionsView kind="income" heading="Income" />;
+  return <TransactionsView kind="income" />;
 }
 
 export function ExpenseView(_props: { path?: string }) {
-  return <TransactionsView kind="expense" heading="Expenses" />;
+  return <TransactionsView kind="expense" />;
 }
 
 export function InvestmentView(_props: { path?: string }) {
-  return <TransactionsView kind="investment" heading="Investments" />;
+  return <TransactionsView kind="investment" />;
 }

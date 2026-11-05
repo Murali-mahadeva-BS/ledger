@@ -1,4 +1,4 @@
-import { Router } from "preact-iso";
+import { Route, Routes } from "react-router-dom";
 import { Drawer } from "./components/Drawer";
 import { Header } from "./components/Header";
 import { ModalHost } from "./components/ModalHost";
@@ -20,21 +20,21 @@ export function App() {
   return (
     <>
       <Header />
-      <main class="mx-auto w-full max-w-6xl px-3 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4">
-        <Router>
-          <DashboardView path="/" />
-          <IncomeView path="/income" />
-          <IncomeEntryDetailView path="/income/:id" />
-          <ExpenseView path="/expense" />
-          <InvestmentView path="/investment" />
-          <TransferView path="/transfer" />
-          <CalendarView path="/calendar" />
-          <LendingView path="/lending" />
-          <LoanView path="/loan" />
-          <AccountsView path="/accounts" />
-          <SettingsView path="/settings" />
-          <PlaceholderView default label="Not found" />
-        </Router>
+      <main className="mx-auto w-full max-w-6xl px-3 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4">
+        <Routes>
+          <Route path="/" element={<DashboardView />} />
+          <Route path="/income" element={<IncomeView />} />
+          <Route path="/income/:id" element={<IncomeEntryDetailView />} />
+          <Route path="/expense" element={<ExpenseView />} />
+          <Route path="/investment" element={<InvestmentView />} />
+          <Route path="/transfer" element={<TransferView />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/lending" element={<LendingView />} />
+          <Route path="/loan" element={<LoanView />} />
+          <Route path="/accounts" element={<AccountsView />} />
+          <Route path="/settings" element={<SettingsView />} />
+          <Route path="*" element={<PlaceholderView label="Not found" />} />
+        </Routes>
       </main>
       <Drawer />
       <ModalHost />
